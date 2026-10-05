@@ -96,6 +96,34 @@ Manual") and has been generalised to any document. "Medical" is now one of six d
 | **OpenAI-compatible** | e.g. `OLLAMA_ORIGINS=* ollama serve` and then `ollama pull mistral:7b-instruct` | Same Mistral-7B as the notebook. Groq and OpenRouter free tiers also work. |
 | **In-browser** | none (0.4–1.1 GB downloaded once) | Private; use WebGPU (Chrome/Edge) for usable speed |
 
+### Free vs PRO Hugging Face accounts
+
+The app reads your plan from the token using Hugging Face's free `whoami` check, which uses no credits. It then suggests settings
+that fit the plan (**Settings → Language model → Your plan**):
+
+| | Free account | PRO account |
+|---|---|---|
+| Recommended model | Llama 3.1 8B / Qwen 2.5 7B | Llama 3.3 70B / Qwen 2.5 72B |
+| Judge | combined (1 call) | strict, as in the notebook (2 calls) |
+| Extra calls | none automatic (no AI suggestions, no corrective retry) | corrective retry, AI-written starter questions |
+| LLM calls per question | ~2 (3 for follow-ups) | ~3 (up to 7 when a retry is needed) |
+| Provider policy | `:cheapest` stretches credits | `:fastest` for latency |
+| Organisation billing | – | optional “Bill to organisation” (`X-HF-Bill-To`) |
+
+Safeguards for both plans:
+- **No hidden spending:** opening a chat makes no LLM calls, and token checks use the free endpoint.
+- **Usage meter:** calls and tokens per visit and per month, broken down by purpose, with a link to your HF billing page. A
+  header chip shows calls per question.
+- **Evaluation Lab cost estimate:** shows the number of LLM calls before a run, and asks you to confirm when it's large for your
+  plan. Retrieval-only mode uses no LLM calls.
+- **Actionable errors:**
+  - out of credits (402): links to billing, or switch to the free unlimited Extractive mode in one click
+  - missing token permission or gated model (403)
+  - model not served (404)
+  - rate limits (429) and provider outages (5xx), which are retried automatically with backoff (never for credit or auth
+    errors)
+- A large model selected on a free account shows a warning.
+
 **API tokens are never saved.** The Hugging Face token (and any API key) is typed into a masked field and kept only in
 the memory of the current tab. It is never written to localStorage, IndexedDB, cookies, exports or the URL, and tokens
 saved by older versions are purged on load. Reloading or closing the tab erases it, so you enter it once per visit. It is sent

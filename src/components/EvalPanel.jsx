@@ -113,7 +113,9 @@ function Overview({ rec, onOpen }) {
         </div>
         {!j && !evaluating && (
           <p className="mt-2 text-xs text-slate-500">
-            {rec.eval?.judgeError
+            {rec.error
+              ? 'Not evaluated: the answer could not be generated (see the message above).'
+              : rec.eval?.judgeError
               ? `Judge failed: ${rec.eval.judgeError}`
               : rec.provider === 'extractive'
                 ? 'The LLM judge needs an LLM provider (Settings). Judge-free metrics are shown.'

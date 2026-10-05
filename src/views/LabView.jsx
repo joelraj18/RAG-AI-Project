@@ -13,6 +13,7 @@ import { vectorsReady } from '../lib/kb.js';
 import { db } from '../lib/db.js';
 import { fmtMs, uid, mean } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
+import { estimateLabCalls } from '../lib/hf.js';
 
 const f2 = (x) => (x == null ? '–' : x.toFixed(2));
 const pctS = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
@@ -89,7 +90,7 @@ function toCSV(run) {
 const cellColor = (s) => (s == null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : s >= 4.5 ? 'bg-emerald-500 text-white' : s >= 3.5 ? 'bg-teal-400 text-white' : s >= 2.5 ? 'bg-amber-400 text-white' : 'bg-rose-500 text-white');
 
 export default function LabView() {
-  const { settings, activeCollection, activeDocs, sets, kbLoading, kbOf } = useStore();
+  const { settings, activeCollection, activeDocs, sets, kbLoading, kbOf, effectivePlan } = useStore();
   const p = preset(settings.preset);
   const [questions, setQuestions] = useState('');
   const [selected, setSelected] = useState(['V', 'C1', 'C2', 'C3', 'C4', 'C5', 'H4']);
@@ -115,10 +116,17 @@ export default function LabView() {
   if (!activeCollection || !activeDocs.length) return <Empty icon={FlaskConical} title="Add a document first">The Evaluation Lab benchmarks retrieval and generation settings on your documents.</Empty>;
   const semanticReady = sets.length > 0 && sets.every((s) => vectorsReady(s.doc, s.kb));
 
+  const runnable = BENCH_CONFIGS.filter((c) => selected.includes(c.id) && (llm || !c.needsLLM) && !(retrievalOnly && c.needsLLM));
+  const qCount = parseQuestions(questions).length;
+  const estCalls = estimateLabCalls(settings, runnable, qCount, retrievalOnly);
+  const hfFree = settings.provider === 'hf' && effectivePlan === 'free';
+  const callLimit = settings.provider === 'hf' ? (effectivePlan === 'pro' ? 400 : 40) : Infinity;
+
   async function start() {
     const qs = parseQuestions(questions);
-    const configs = BENCH_CONFIGS.filter((c) => selected.includes(c.id) && (llm || !c.needsLLM) && !(retrievalOnly && c.needsLLM));
+    const configs = runnable;
     if (!qs.length || !configs.length || !sets.length) return;
+    if (estCalls > callLimit && !confirm(`This experiment will make about ${estCalls} LLM calls${hfFree ? ', which can use a large part of the free monthly Hugging Face credits' : ''}.\n\nTip: use “Retrieval only” to tune search for free, select fewer configurations, or set the judge to Off.\n\nContinue?`)) return;
     db.putKV(`questions:${activeCollection.id}`, questions);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -213,6 +221,13 @@ export default function LabView() {
               </div>
               {!semanticReady && <p className="mt-2 text-xs text-amber-600">Semantic index not ready for every document — semantic/MMR/hybrid configs fall back to keyword search there.</p>}
               {!llm && !retrievalOnly && <p className="mt-2 text-xs text-amber-600">Extractive provider: no LLM judge, only judge-free metrics.</p>}
+              {qCount > 0 && (
+                <p className={`mt-3 text-xs ${estCalls > callLimit ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500'}`}>
+                  {retrievalOnly || !llm
+                    ? `${runnable.length} configs × ${qCount} questions — no LLM calls.`
+                    : `${runnable.length} configs × ${qCount} questions ≈ ${estCalls} LLM calls${settings.provider === 'hf' ? ` (${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan)` : ''}.${estCalls > callLimit ? ' That is a lot for your plan — consider fewer configs or Retrieval only.' : ''}`}
+                </p>
+              )}
               <div className="mt-4">
                 {progress ? <Button variant="secondary" icon={Square} onClick={() => abortRef.current?.abort()}>Stop</Button> : <Button icon={Play} onClick={start} disabled={kbLoading || !questions.trim()}>Run experiment</Button>}
               </div>

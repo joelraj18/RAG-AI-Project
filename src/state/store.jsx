@@ -5,6 +5,8 @@ import { loadKnowledge, cachedKnowledge, EmbedJob } from '../lib/kb.js';
 import { embedClient } from '../lib/workers.js';
 import { slimRecord } from '../lib/pipeline.js';
 import { uid } from '../lib/text.js';
+import { whoami } from '../lib/hf.js';
+import { getUsage, onUsage } from '../lib/usage.js';
 
 // Central app state: settings, documents, collections, sessions, background embedding.
 
@@ -44,6 +46,9 @@ export function StoreProvider({ children }) {
   const [viewer, setViewer] = useState(null);
   const [booted, setBooted] = useState(false);
   const jobs = useRef(new Map());
+  const [hfAccount, setHfAccount] = useState(null); // { status: 'checking'|'ok'|'error', ...whoami } — memory only
+  const [usage, setUsage] = useState(getUsage);
+  useEffect(() => onUsage(() => setUsage({ ...getUsage() })), []);
 
   const setSettings = useCallback((patch) => {
     setSettingsState((s) => {
@@ -233,6 +238,27 @@ export function StoreProvider({ children }) {
     [activeCollectionId, refresh, setActiveCollectionId]
   );
 
+  // ---------- Hugging Face account (plan detection via the free whoami endpoint) ----------
+  const token = settings.provider === 'hf' ? settings.hfToken : '';
+  useEffect(() => {
+    if (!token) return setHfAccount(null);
+    const ctrl = new AbortController();
+    setHfAccount({ status: 'checking' });
+    const t = setTimeout(async () => {
+      try {
+        const r = await whoami(token, ctrl.signal);
+        setHfAccount({ status: r.ok ? 'ok' : 'error', ...r });
+      } catch {
+        /* aborted */
+      }
+    }, 600);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [token]);
+  const effectivePlan = settings.hfPlan !== 'auto' ? settings.hfPlan : hfAccount?.plan || 'free';
+
   const kbOf = useCallback((docId) => cachedKnowledge(docId), []);
   const openPage = useCallback((docId, page, highlight) => setViewer({ docId, page, highlight }), []);
 
@@ -270,6 +296,9 @@ export function StoreProvider({ children }) {
     setViewer,
     openPage,
     booted,
+    hfAccount,
+    effectivePlan,
+    usage,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

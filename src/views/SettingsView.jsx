@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bot, Search, Scale, Database, KeyRound, CheckCircle2, XCircle, Loader2, RotateCcw, ExternalLink, Zap, Layers, BookType } from 'lucide-react';
 import { Button, Card, CardHeader, Field, Toggle, inputCls, cx, Badge, OptionCard, TagBadges } from '../components/ui.jsx';
-import { PROVIDERS, HF_MODELS, BROWSER_MODELS, generate } from '../lib/llm.js';
+import { PROVIDERS, BROWSER_MODELS, generate } from '../lib/llm.js';
 import { EMBED_MODELS, RERANK_MODEL } from '../lib/workers.js';
 import { PROFILES, matchProfile } from '../lib/settings.js';
 import { PRESETS } from '../lib/presets.js';
@@ -12,6 +12,8 @@ import { db, storageEstimate } from '../lib/db.js';
 import { fmtMs, fmtBytes } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
 import SecretInput from '../components/SecretInput.jsx';
+import HfPanel from '../components/HfPanel.jsx';
+import { callsPerQuestion } from '../lib/hf.js';
 
 const MODES = [
   { id: 'hybrid', title: 'Hybrid (BM25 + semantic)', tags: ['recommended', 'quality'], why: 'Combines exact keyword matches with meaning; best recall on most documents.', cost: '+5–20 ms' },
@@ -41,7 +43,7 @@ export default function SettingsView() {
   async function testConnection() {
     setTest({ busy: true });
     try {
-      const r = await generate(s, { messages: [{ role: 'user', content: 'Reply with the single word: ready' }], maxTokens: 8, temperature: 0, topP: 1 });
+      const r = await generate(s, { purpose: 'other', messages: [{ role: 'user', content: 'Reply with the single word: ready' }], maxTokens: 8, temperature: 0, topP: 1 });
       setTest({ ok: true, text: r.text, ms: r.latencyMs });
     } catch (e) {
       setTest({ ok: false, text: String(e.message || e) });
@@ -62,7 +64,7 @@ export default function SettingsView() {
           <CardHeader icon={Zap} title="Quick profile" subtitle={`Sets retrieval, reranking, judging and embedding options in one click. Current: ${profile === 'custom' ? 'custom' : PROFILES[profile].label}.`} />
           <div className="grid gap-3 p-5 sm:grid-cols-3">
             {Object.entries(PROFILES).map(([id, p]) => (
-              <OptionCard key={id} selected={profile === id} onClick={() => setSettings(p.values)} title={p.label} tags={p.tags} why={p.why} cost={`k=${p.values.k} · ${p.values.retrievalMode}${p.values.rerank ? ' + rerank' : ''} · judge ${p.values.judgeMode}`} />
+              <OptionCard key={id} selected={profile === id} onClick={() => setSettings(p.values)} title={p.label} tags={p.tags} why={p.why} cost={`k=${p.values.k} · ${p.values.retrievalMode}${p.values.rerank ? ' + rerank' : ''} · judge ${p.values.judgeMode}${s.provider !== 'extractive' ? ` · ~${callsPerQuestion({ ...s, ...p.values }).base} LLM calls/question` : ''}`} />
             ))}
           </div>
         </Card>
@@ -84,24 +86,7 @@ export default function SettingsView() {
                 <OptionCard key={id} selected={s.provider === id} onClick={() => setSettings({ provider: id })} title={p.label} tags={p.tags} why={p.why} cost={p.cost} />
               ))}
             </div>
-            {s.provider === 'hf' && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Hugging Face access token"
-                  hint={
-                    <a className="inline-flex items-center gap-1 text-brand-700 underline dark:text-brand-300" href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer">
-                      Create a free token (fine-grained, “Make calls to Inference Providers”) <ExternalLink className="h-3 w-3" />
-                    </a>
-                  }
-                >
-                  <SecretInput value={s.hfToken} onChange={(v) => setSettings({ hfToken: v })} />
-                </Field>
-                <Field label="Model" hint="8B models answer in ~2–5 s; 70B models are higher quality but slower and use more free credits. Append :fastest to pick the fastest provider.">
-                  <input list="hf-models" value={s.hfModel} onChange={(e) => setSettings({ hfModel: e.target.value })} className={inputCls} />
-                  <datalist id="hf-models">{HF_MODELS.map((m) => <option key={m} value={m} />)}</datalist>
-                </Field>
-              </div>
-            )}
+            {s.provider === 'hf' && <HfPanel />}
             {s.provider === 'openai' && (
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Base URL" hint="Ollama: http://localhost:11434/v1 (start with OLLAMA_ORIGINS=*). Groq: https://api.groq.com/openai/v1">
@@ -122,7 +107,7 @@ export default function SettingsView() {
                 </select>
               </Field>
             )}
-            {s.provider !== 'extractive' && (
+            {(s.provider === 'openai' || s.provider === 'browser') && (
               <div className="flex flex-wrap items-center gap-3">
                 <Button variant="secondary" icon={KeyRound} onClick={testConnection} disabled={test?.busy}>Test connection</Button>
                 {test?.busy && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -133,6 +118,14 @@ export default function SettingsView() {
                   </span>
                 )}
               </div>
+            )}
+            {s.provider !== 'extractive' && (
+              <Toggle
+                checked={s.aiSuggestions}
+                onChange={(v) => setSettings({ aiSuggestions: v })}
+                label="AI-written starter questions"
+                hint="Off: starter questions come from section titles (free). On: the LLM writes them once per document (1 call each, cached)."
+              />
             )}
             <div className="grid gap-4 sm:grid-cols-4">
               <Field label={`Max answer tokens: ${s.maxTokens}`} hint="512 suits most answers; 256 truncated every vanilla answer in the notebook.">

@@ -2,6 +2,8 @@ import { estimateTokens, tokenize, splitSentences } from './text.js';
 import { FALLBACK_ANSWER } from './prompts.js';
 import { sourceLabel } from './retrieve.js';
 import { browserGenerate } from './workers.js';
+import { ROUTER_URL, HF_MODELS as HF_CATALOGUE, friendlyError } from './hf.js';
+import { recordUsage } from './usage.js';
 
 // LLM providers. All of them are free to use:
 //  - "hf":         Hugging Face Inference Providers (OpenAI-compatible router) with a free HF token
@@ -36,14 +38,7 @@ export const PROVIDERS = {
   },
 };
 
-export const HF_MODELS = [
-  'meta-llama/Llama-3.1-8B-Instruct',
-  'Qwen/Qwen2.5-7B-Instruct',
-  'mistralai/Mistral-7B-Instruct-v0.2',
-  'google/gemma-2-9b-it',
-  'Qwen/Qwen2.5-72B-Instruct',
-  'meta-llama/Llama-3.3-70B-Instruct',
-];
+export const HF_MODELS = HF_CATALOGUE.map((m) => m.id);
 
 export const BROWSER_MODELS = [
   { id: 'onnx-community/Qwen2.5-0.5B-Instruct', label: 'Qwen2.5 0.5B Instruct (~400 MB, fastest)' },
@@ -58,9 +53,25 @@ export function providerLabel(s) {
   return 'Extractive (no LLM)';
 }
 
-async function chatCompletions({ url, key, model, messages, maxTokens, temperature, topP, onToken, signal }) {
+/** Error with an HTTP status and an actionable hint for the UI. */
+export class LLMError extends Error {
+  constructor(status, detail, ctx) {
+    const f = friendlyError(status, detail, ctx);
+    super(`${f.title}: ${f.hint}`);
+    Object.assign(this, { status, detail, title: f.title, hint: f.hint, billing: !!f.billing });
+  }
+}
+
+const RETRYABLE = new Set([429, 502, 503, 504]);
+const sleepAbortable = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => (clearTimeout(t), reject(new DOMException('Aborted', 'AbortError'))), { once: true });
+  });
+
+async function chatCompletions({ url, key, model, messages, maxTokens, temperature, topP, onToken, signal, extraHeaders, provider, retries = 2 }) {
   const t0 = performance.now();
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json', ...extraHeaders };
   if (key) headers.Authorization = `Bearer ${key}`;
   const body = {
     model,
@@ -71,23 +82,30 @@ async function chatCompletions({ url, key, model, messages, maxTokens, temperatu
     stream: true,
     stream_options: { include_usage: true },
   };
-  let res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
-  if (res.status === 400) {
-    // some servers reject stream_options – retry without it
-    delete body.stream_options;
+  let res;
+  for (let attempt = 0; ; attempt++) {
     res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
-  }
-  if (!res.ok) {
-    // read the body once as text (a failed res.json() would consume it), then try JSON
-    const body = await res.text().catch(() => '');
-    let detail = body;
+    if (res.ok) break;
+    const errText = await res.text().catch(() => '');
+    // some OpenAI-compatible servers reject stream_options: retry once without it (only for that error)
+    if (res.status === 400 && body.stream_options && /stream_options|include_usage/i.test(errText)) {
+      delete body.stream_options;
+      continue;
+    }
+    // rate limits and provider outages: back off and retry (never for auth/credit errors)
+    if (RETRYABLE.has(res.status) && attempt < retries) {
+      const after = Number(res.headers.get('retry-after'));
+      await sleepAbortable(Number.isFinite(after) && after > 0 ? Math.min(after, 20) * 1000 : 1500 * 2 ** attempt, signal);
+      continue;
+    }
+    let detail = errText;
     try {
-      const j = JSON.parse(body);
-      detail = j.error?.message || j.error || j.message || body;
+      const j = JSON.parse(errText);
+      detail = j.error?.message || (typeof j.error === 'string' ? j.error : '') || j.message || errText;
     } catch {
       /* not JSON – keep the raw text */
     }
-    throw new Error(`${res.status} ${res.statusText}: ${String(detail).slice(0, 300)}`);
+    throw new LLMError(res.status, detail, { model, provider });
   }
   let text = '';
   let ttft = null;
@@ -138,7 +156,28 @@ async function chatCompletions({ url, key, model, messages, maxTokens, temperatu
 }
 
 /** Generate a chat completion with the configured provider. */
-export async function generate(settings, { messages, maxTokens, temperature, topP, onToken, signal }) {
+export async function generate(settings, { messages, maxTokens, temperature, topP, onToken, signal, purpose = 'answer' }) {
+  const p = settings.provider;
+  if (p === 'hf' || p === 'openai') {
+    try {
+      const r = await remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal });
+      recordUsage({ purpose, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
+      return r;
+    } catch (e) {
+      if (e.name !== 'AbortError') recordUsage({ purpose, failed: true });
+      throw e;
+    }
+  }
+  return localGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal });
+}
+
+/** Model id sent to the router: an optional provider policy (":fastest" / ":cheapest") is appended. */
+export function hfModelId(settings) {
+  const m = (settings.hfModel || '').trim();
+  return settings.hfPolicy && !m.includes(':') ? `${m}:${settings.hfPolicy}` : m;
+}
+
+async function remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal }) {
   const p = settings.provider;
   const common = {
     messages,
@@ -149,22 +188,32 @@ export async function generate(settings, { messages, maxTokens, temperature, top
     signal,
   };
   if (p === 'hf') {
-    if (!settings.hfToken) throw new Error('Enter your Hugging Face token (it is kept only in memory for this tab, so it is needed again after a reload).');
+    const token = (settings.hfToken || '').trim();
+    if (!token) throw new Error('Enter your Hugging Face token (it is kept only in memory for this tab, so it is needed again after a reload).');
+    if (!token.startsWith('hf_')) throw new LLMError(401, 'Token does not start with hf_', { provider: 'hf' });
+    const billTo = (settings.hfBillTo || '').trim();
     return chatCompletions({
       ...common,
-      url: 'https://router.huggingface.co/v1/chat/completions',
-      key: settings.hfToken,
-      model: settings.hfModel,
+      url: ROUTER_URL,
+      key: token,
+      model: hfModelId(settings),
+      provider: 'hf',
+      // PRO / Team / Enterprise: charge an organisation instead of the personal account
+      extraHeaders: billTo ? { 'X-HF-Bill-To': billTo } : undefined,
     });
   }
-  if (p === 'openai') {
-    return chatCompletions({
-      ...common,
-      url: settings.openaiBaseUrl.replace(/\/$/, '') + '/chat/completions',
-      key: settings.openaiKey,
-      model: settings.openaiModel,
-    });
-  }
+  return chatCompletions({
+    ...common,
+    url: settings.openaiBaseUrl.replace(/\/$/, '') + '/chat/completions',
+    key: settings.openaiKey,
+    model: settings.openaiModel,
+    provider: 'openai',
+  });
+}
+
+async function localGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal }) {
+  const p = settings.provider;
+  const common = { messages, maxTokens: maxTokens ?? settings.maxTokens, temperature: temperature ?? settings.temperature, topP: topP ?? settings.topP, onToken, signal };
   if (p === 'browser') {
     return browserGenerate(settings.browserModel, common);
   }

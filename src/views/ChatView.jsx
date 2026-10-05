@@ -14,6 +14,8 @@ import { db } from '../lib/db.js';
 import { fmtMs, uid } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
 import SecretInput from '../components/SecretInput.jsx';
+import { AccountStatus } from '../components/HfPanel.jsx';
+import { BILLING_URL, callsPerQuestion } from '../lib/hf.js';
 
 const PHASE = {
   retrieving: 'Retrieving relevant passages…',
@@ -21,6 +23,35 @@ const PHASE = {
   evaluating: 'Evaluating groundedness & relevance…',
   correcting: 'Weak grounding — rewriting the query and retrying…',
 };
+
+function ErrorCard({ rec }) {
+  const { setView, setSettings } = useStore();
+  const info = rec.errorInfo;
+  return (
+    <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <div className="font-semibold">{info?.title || 'Something went wrong'}</div>
+          <div className="mt-0.5">{info?.hint || rec.error}</div>
+        </div>
+      </div>
+      {info && (
+        <div className="mt-2 flex flex-wrap gap-2 pl-6">
+          <Button size="sm" variant="secondary" onClick={() => setView('settings')}>Open settings</Button>
+          {info.billing && (
+            <a className="inline-flex h-8 items-center rounded-lg px-2.5 text-xs font-medium ring-1 ring-rose-200 hover:bg-white dark:ring-rose-800" href={BILLING_URL} target="_blank" rel="noreferrer noopener">
+              Check credits
+            </a>
+          )}
+          {(info.billing || info.status === 429) && (
+            <Button size="sm" variant="ghost" onClick={() => setSettings({ provider: 'extractive' })}>Switch to Extractive (free, unlimited)</Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AnswerCard({ rec, title, compact, multiDoc }) {
   const { openPage, docs } = useStore();
@@ -53,9 +84,7 @@ function AnswerCard({ rec, title, compact, multiDoc }) {
         )}
       </div>
       {rec.error ? (
-        <div className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {rec.error}
-        </div>
+        <ErrorCard rec={rec} />
       ) : (
         <Markdown text={rec.answer || (busy ? '' : '_No answer_')} onCite={onCite} streaming={rec.phase === 'generating'} showNames={multiDoc} />
       )}
@@ -73,7 +102,7 @@ function AnswerCard({ rec, title, compact, multiDoc }) {
 
 export default function ChatView() {
   const store = useStore();
-  const { settings, setSettings, activeCollection, activeDocs, sets, kbLoading, embedStatus, setView, newSession, saveSession, kbOf, importSession, sessions, activeSessionId } = store;
+  const { settings, setSettings, activeCollection, activeDocs, sets, kbLoading, embedStatus, setView, newSession, saveSession, kbOf, importSession, sessions, activeSessionId, usage, effectivePlan } = store;
   const session = sessions.find((s) => s.id === activeSessionId) || null;
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -94,30 +123,43 @@ export default function ChatView() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length, last?.rag?.phase]);
 
-  // starter questions: preset samples, cached per document, or generated once
+  // starter questions: preset samples, else from section titles (free). AI-written ones cost one
+  // LLM call per document, so they are generated only when asked for (or enabled in Settings).
   const p = preset(settings.preset);
   const docKey = activeDocs.map((d) => d.id).join('|');
+  const llmOn = settings.provider !== 'extractive' && (settings.provider !== 'hf' || !!settings.hfToken);
+  const [aiRequested, setAiRequested] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [suggestedAI, setSuggestedAI] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (p.sampleQuestions) return setSuggested(p.sampleQuestions);
+      const useLLM = llmOn && (settings.aiSuggestions || aiRequested);
+      if (useLLM) setAiBusy(true);
       const out = [];
+      let ai = false;
       for (const s of sets.slice(0, 3)) {
-        const key = `suggest:${s.doc.id}:${settings.provider === 'extractive' ? 'x' : 'llm'}`;
-        let qs = await db.getKV(key);
-        if (!qs) {
-          qs = await suggestQuestions(settings, s.doc, s.kb);
-          if (qs.length) await db.putKV(key, qs);
+        let r = useLLM ? await db.getKV(`suggest:${s.doc.id}:llm`) : null;
+        if (!r) r = await db.getKV(`suggest:${s.doc.id}:x`);
+        if (!r || (useLLM && !r.ai)) {
+          r = await suggestQuestions(settings, s.doc, s.kb, useLLM);
+          if (r.questions.length) await db.putKV(`suggest:${s.doc.id}:${r.ai ? 'llm' : 'x'}`, r);
         }
-        out.push(...qs.slice(0, sets.length > 1 ? 2 : 5));
+        ai ||= !!r.ai;
+        out.push(...(r.questions || r).slice(0, sets.length > 1 ? 2 : 5));
       }
-      if (!cancelled) setSuggested(out.slice(0, 6));
+      if (!cancelled) {
+        setSuggested(out.slice(0, 6));
+        setSuggestedAI(ai);
+        setAiBusy(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docKey, sets.length, settings.provider, settings.preset]);
+  }, [docKey, sets.length, llmOn, settings.preset, settings.aiSuggestions, aiRequested]);
 
   if (!activeCollection || !activeDocs.length) {
     return (
@@ -207,6 +249,13 @@ export default function ChatView() {
         <button onClick={() => setView('settings')} className="rounded-full" title={profile === 'custom' ? 'Custom settings' : PROFILES[profile].why}>
           <Badge color="brand">profile: {profile === 'custom' ? 'custom' : PROFILES[profile].label}</Badge>
         </button>
+        {(settings.provider === 'hf' || settings.provider === 'openai') && (
+          <button onClick={() => setView('settings')} title={`Each question uses about ${callsPerQuestion(settings).base} LLM call(s) with current settings${settings.provider === 'hf' ? ` (${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan). See Settings → Usage.` : '.'}`}>
+            <Badge color={settings.provider === 'hf' && effectivePlan === 'free' && callsPerQuestion(settings).base > 2 ? 'amber' : 'slate'}>
+              LLM calls: {usage.visit.calls} this visit · ~{callsPerQuestion(settings).base}/question
+            </Badge>
+          </button>
+        )}
         <Badge color={semanticReady ? 'green' : 'amber'} title="Semantic embeddings build in the background; keyword search works immediately">
           <Gauge className="h-3 w-3" />
           {semanticReady ? `${settings.retrievalMode} retrieval` : embedding.length ? `embedding ${Math.round((embedding.reduce((a, e) => a + e.done, 0) / embedding.reduce((a, e) => a + e.total, 0)) * 100)}% · keyword meanwhile` : 'keyword search (semantic index not ready)'}
@@ -270,6 +319,9 @@ export default function ChatView() {
               </div>
               <Button disabled={!settings.hfToken} onClick={() => setEditingToken(false)}>Use token</Button>
             </div>
+            <div className="mt-1.5">
+              <AccountStatus compact />
+            </div>
           </div>
         </div>
       )}
@@ -298,6 +350,11 @@ export default function ChatView() {
                   </button>
                 ))}
               </div>
+              {llmOn && !p.sampleQuestions && !suggestedAI && (
+                <button onClick={() => setAiRequested(true)} disabled={aiBusy} className="mx-auto mt-3 flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline disabled:opacity-50 dark:text-brand-300">
+                  {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Suggest better questions with AI (uses {Math.min(3, sets.length)} LLM call{sets.length > 1 ? 's' : ''})
+                </button>
+              )}
             </div>
           )}
           {messages.map((m, i) => (

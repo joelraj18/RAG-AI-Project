@@ -61,8 +61,9 @@ function heuristicStandalone(question, history) {
   return prev && short && anaphora ? `${prev} ${question}` : question;
 }
 
-async function llmText(settings, system, user, maxTokens, signal) {
+async function llmText(settings, system, user, maxTokens, signal, purpose = 'other') {
   const r = await generate(settings, {
+    purpose,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
@@ -80,7 +81,7 @@ export async function judge(settings, { question, context, answer, signal }) {
   const input = fill(JUDGE_USER_TEMPLATE, { question, context, answer });
   const t0 = performance.now();
   if (settings.judgeMode === 'strict') {
-    const run = (sys) => llmText(settings, fill(sys, { domain }), input, settings.judgeMaxTokens, signal);
+    const run = (sys) => llmText(settings, fill(sys, { domain }), input, settings.judgeMaxTokens, signal, 'judge');
     const [g, r] =
       settings.provider === 'browser'
         ? [await run(GROUNDEDNESS_SYSTEM), await run(RELEVANCE_SYSTEM)]
@@ -97,29 +98,33 @@ export async function judge(settings, { question, context, answer, signal }) {
       ms: performance.now() - t0,
     };
   }
-  const raw = await llmText(settings, fill(COMBINED_JUDGE_SYSTEM, { domain }), input, Math.max(220, settings.judgeMaxTokens), signal);
+  const raw = await llmText(settings, fill(COMBINED_JUDGE_SYSTEM, { domain }), input, Math.max(220, settings.judgeMaxTokens), signal, 'judge');
   const j = parseCombinedJudge(raw);
   return { mode: 'combined', calls: 1, ...j, justification: { overall: j.justification }, raw, ms: performance.now() - t0 };
 }
 
-/** Five starter questions for a document: LLM-written when available, else from section titles. */
-export async function suggestQuestions(settings, doc, kb) {
+/**
+ * Five starter questions for a document. From section titles by default (free, instant);
+ * written by the LLM only when `useLLM` (one call, opt-in so it never spends credits silently).
+ */
+export async function suggestQuestions(settings, doc, kb, useLLM = false) {
   const sections = [...new Set(kb.chunks.map((c) => c.section).filter((s) => s && s.length > 3 && s.length < 70))];
-  if (settings.provider !== 'extractive') {
+  if (useLLM && settings.provider !== 'extractive') {
     try {
       const sample = kb.chunks[Math.floor(kb.chunks.length / 3)]?.text.slice(0, 1200) || '';
-      const text = await llmText(settings, SUGGEST_SYSTEM, `Document: ${doc.name}\nSection titles: ${sections.slice(0, 25).join('; ')}\n\nExcerpt:\n${sample}`, 220);
+      const text = await llmText(settings, SUGGEST_SYSTEM, `Document: ${doc.name}\nSection titles: ${sections.slice(0, 25).join('; ')}\n\nExcerpt:\n${sample}`, 220, undefined, 'suggest');
       const qs = text.split('\n').map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim()).filter((l) => l.endsWith('?'));
-      if (qs.length >= 3) return qs.slice(0, 5);
+      if (qs.length >= 3) return { questions: qs.slice(0, 5), ai: true };
     } catch {
       /* fall back to section titles */
     }
   }
   const step = Math.max(1, Math.floor(sections.length / 5));
-  return sections
+  const questions = sections
     .filter((_, i) => i % step === 0)
     .slice(0, 5)
     .map((s) => (s.trim().endsWith('?') ? s.trim() : `What does ${doc.name} say about ${s.replace(/^(step|chapter|section)\s*\d+[:.]?\s*/i, '').replace(/[:.]$/, '')}?`));
+  return { questions, ai: false };
 }
 
 /**
@@ -191,6 +196,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
       const messages = buildMessages(settings, docNames, r.sources, question, history, c.vanilla);
       rec.prompt = messages;
       g = await generate(settings, {
+        purpose: c.vanilla ? 'vanilla' : 'answer',
         messages,
         maxTokens: c.maxTokens,
         temperature: c.temperature,
@@ -247,7 +253,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
     if (llm && settings.condense && history.some((m) => m?.answer)) {
       const t0 = performance.now();
       const ctx = historyMessages(history).map((m) => `${m.role}: ${m.content}`).join('\n');
-      q0 = (await llmText(settings, CONDENSE_SYSTEM, `${ctx}\nuser: ${question}`, 80, signal).catch(() => q0)) || q0;
+      q0 = (await llmText(settings, CONDENSE_SYSTEM, `${ctx}\nuser: ${question}`, 80, signal, 'rewrite').catch(() => q0)) || q0;
       add('condense', performance.now() - t0);
       rec.trace.standalone = q0;
     }
@@ -255,7 +261,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
     let semanticQuery;
     if (llm && settings.hyde && !c.vanilla) {
       const t0 = performance.now();
-      const passage = await llmText(settings, HYDE_SYSTEM, q0, 160, signal).catch(() => '');
+      const passage = await llmText(settings, HYDE_SYSTEM, q0, 160, signal, 'hyde').catch(() => '');
       add('hyde', performance.now() - t0);
       if (passage) {
         semanticQuery = `${q0}\n${passage}`;
@@ -270,7 +276,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
       rec.phase = 'correcting';
       emit();
       const t0 = performance.now();
-      const q1 = llm ? await llmText(settings, REWRITE_SYSTEM, question, 48, signal).catch(() => q0) : q0;
+      const q1 = llm ? await llmText(settings, REWRITE_SYSTEM, question, 48, signal, 'rewrite').catch(() => q0) : q0;
       add('condense', performance.now() - t0);
       const b = await attempt(q1 || q0, c.k + 2, 'hybrid');
       const keepB = quality(b) >= quality(a);
@@ -282,6 +288,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
   } catch (e) {
     rec.phase = 'error';
     rec.error = e.name === 'AbortError' ? 'Stopped.' : String(e.message || e);
+    if (e.title) rec.errorInfo = { title: e.title, hint: e.hint, status: e.status, billing: e.billing };
   }
   rec.timings.total = performance.now() - tStart;
   emit();

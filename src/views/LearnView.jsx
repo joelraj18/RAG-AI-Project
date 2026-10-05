@@ -44,6 +44,8 @@ export default function LearnView() {
     ['Best answer quality', 'HF 70B model · hybrid + rerank · k = 5 + neighbours · strict judge · corrective RAG', ['quality']],
     ['Least storage / download', 'MiniLM embeddings · free original PDFs after indexing · BM25-only works with no model at all', ['lightest']],
     ['Full privacy', 'In-browser model or local Ollama — nothing leaves your machine', ['private']],
+    ['Free Hugging Face account', 'Settings → Your plan → Apply Free settings: Llama 3.1 8B, combined judge, no automatic extra calls (~2 calls/question). Use Retrieval-only in the Lab.', ['lightest']],
+    ['PRO Hugging Face account', 'Apply PRO settings: Llama 3.3 70B, strict judge, corrective retry (~3 calls/question, up to 7 with a retry). Optionally bill an organisation.', ['quality']],
     ['Everyday default', 'Balanced profile: hybrid k = 4, combined judge, gte-small, HF Llama-3.1-8B', ['recommended']],
   ];
 

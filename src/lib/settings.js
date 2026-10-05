@@ -7,6 +7,10 @@ export const DEFAULT_SETTINGS = {
   provider: 'extractive',
   hfToken: '',
   hfModel: 'meta-llama/Llama-3.1-8B-Instruct',
+  hfPlan: 'auto', // 'auto' (detected from the token) | 'free' | 'pro'
+  hfPolicy: '', // '' (HF default) | 'fastest' | 'cheapest'
+  hfBillTo: '', // optional organisation to bill (PRO / Team / Enterprise)
+  aiSuggestions: false, // LLM-written starter questions cost one call per document
   openaiBaseUrl: 'http://localhost:11434/v1',
   openaiKey: '',
   openaiModel: 'mistral:7b-instruct',
