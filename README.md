@@ -287,3 +287,18 @@ example `your-name/rag-ai-studio`). To publish by hand:
 - Groundedness is measured against the *retrieved* passages, not against the truth: a retrieval miss can still score well.
   Use context relevance and the Evaluation Lab's hit@k to catch that.
 - Answers support research and decisions; they don't replace professional judgement. Check the cited pages.
+
+## You can get a free Hugging Face token in a couple of minutes.
+
+- Create an account at https://huggingface.co/join, or log in if you have one. Verify your email, because token creation can be blocked until you do.
+- Open the tokens page: click your profile picture (top right) → Settings → Access Tokens, or go straight to https://huggingface.co/settings/tokens.
+- Create the token: click + Create new token and fill it in:
+Token type: Fine-grained.
+Name: something recognisable, like RAG AI Studio, so you can revoke it on its own later.
+Permissions: tick only "Make calls to Inference Providers" (under Inference). Leave everything else unticked; the app doesn't need repo or write access.
+- Click Create token.
+- Copy it right away. It starts with hf_ and is shown in full only once. If you lose it, create a new one.
+- Use it in the app:
+Go to Settings → Language model → Hugging Face Inference, or just start a chat, since the token box appears at the top.
+Paste the token into the masked field, then click Test connection in Settings, or Use token in the chat.
+It's kept only in that tab's memory, so you paste it again after a reload. If your browser offers to save it as a password, choose Never.
