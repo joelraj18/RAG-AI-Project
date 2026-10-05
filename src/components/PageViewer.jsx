@@ -38,7 +38,7 @@ export default function PageViewer() {
   const chunks = (kbOf(doc.id)?.chunks || []).filter((c) => c.page === p);
   const highlight = new Set((viewer.highlight || []).map((k) => Number(String(k).split(':')[1])));
   return (
-    <Modal open onClose={() => setViewer(null)} title={`${doc.name} — page ${p}`} wide>
+    <Modal open onClose={() => setViewer(null)} title={`${doc.name} · page ${p}`} wide>
       <div className="grid md:grid-cols-[1fr_340px]">
         <div className="flex flex-col items-center gap-3 bg-slate-100 p-4 dark:bg-slate-950">
           <div className="flex items-center gap-2">

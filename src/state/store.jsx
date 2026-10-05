@@ -46,7 +46,7 @@ export function StoreProvider({ children }) {
   const [viewer, setViewer] = useState(null);
   const [booted, setBooted] = useState(false);
   const jobs = useRef(new Map());
-  const [hfAccount, setHfAccount] = useState(null); // { status: 'checking'|'ok'|'error', ...whoami } — memory only
+  const [hfAccount, setHfAccount] = useState(null); // { status: 'checking'|'ok'|'error', ...whoami }, memory only
   const [usage, setUsage] = useState(getUsage);
   useEffect(() => onUsage(() => setUsage({ ...getUsage() })), []);
 
@@ -108,7 +108,7 @@ export function StoreProvider({ children }) {
         },
         onError: (e) => {
           const msg = String(e.message || e);
-          const error = /fetch|network|load/i.test(msg) ? 'Could not download the embedding model (offline?). Keyword search still works — retry later.' : msg;
+          const error = /fetch|network|load/i.test(msg) ? 'Could not download the embedding model (offline?). Keyword search still works. Retry later.' : msg;
           setEmbedStatus((s) => ({ ...s, [doc.id]: { ...(s[doc.id] || {}), running: false, error } }));
         },
       });

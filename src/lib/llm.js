@@ -4,39 +4,10 @@ import { sourceLabel } from './retrieve.js';
 import { browserGenerate } from './workers.js';
 import { ROUTER_URL, HF_MODELS as HF_CATALOGUE, friendlyError } from './hf.js';
 import { recordUsage } from './usage.js';
+import { PROVIDERS, apiKeyOf, keyModelOf, dataClass, dataHost } from './providers.js';
 
-// LLM providers. All of them are free to use:
-//  - "hf":         Hugging Face Inference Providers (OpenAI-compatible router) with a free HF token
-//  - "openai":     any OpenAI-compatible endpoint (Ollama on localhost, Groq free tier, OpenRouter, LM Studio…)
-//  - "browser":    a small instruct model running fully in the browser via transformers.js (WebGPU/WASM)
-//  - "extractive": no LLM at all – builds a cited answer from the best retrieved sentences (instant)
-
-export const PROVIDERS = {
-  hf: {
-    label: 'Hugging Face Inference',
-    tags: ['recommended', 'quality'],
-    cost: 'free token · ~2–8 s per answer',
-    why: 'Best answer quality for free: 8B–70B models on HF servers, plus the LLM judge.',
-  },
-  openai: {
-    label: 'OpenAI-compatible (Ollama, Groq…)',
-    tags: ['private'],
-    cost: 'local GPU or free tier',
-    why: 'Run Mistral-7B (the notebook model) on your own machine with Ollama, or use Groq for very fast replies.',
-  },
-  browser: {
-    label: 'In-browser model',
-    tags: ['private'],
-    cost: '0.4–1.1 GB download once · slow without WebGPU',
-    why: 'Nothing leaves the device. Small models (0.5–1.7B) give shorter, simpler answers.',
-  },
-  extractive: {
-    label: 'Extractive (no LLM)',
-    tags: ['fastest', 'lightest'],
-    cost: 'instant · no setup',
-    why: 'Quotes the most relevant sentences with citations. Always grounded, but no synthesis and no LLM judge.',
-  },
-};
+// Provider registry (labels, privacy class, key links) lives in providers.js.
+export { PROVIDERS } from './providers.js';
 
 export const HF_MODELS = HF_CATALOGUE.map((m) => m.id);
 
@@ -47,9 +18,11 @@ export const BROWSER_MODELS = [
 ];
 
 export function providerLabel(s) {
+  const p = PROVIDERS[s.provider];
   if (s.provider === 'hf') return `HF · ${s.hfModel}`;
-  if (s.provider === 'openai') return `${s.openaiModel} @ ${s.openaiBaseUrl.replace(/^https?:\/\//, '')}`;
+  if (s.provider === 'custom') return `${s.openaiModel} @ ${s.openaiBaseUrl.replace(/^https?:\/\//, '')}`;
   if (s.provider === 'browser') return `Browser · ${s.browserModel.split('/').pop()}`;
+  if (p?.group === 'key') return `${p.label} · ${keyModelOf(s)}`;
   return 'Extractive (no LLM)';
 }
 
@@ -84,7 +57,13 @@ async function chatCompletions({ url, key, model, messages, maxTokens, temperatu
   };
   let res;
   for (let attempt = 0; ; attempt++) {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
+    try {
+      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
+    } catch (e) {
+      // TypeError "Failed to fetch": offline, or the provider does not allow calls from web pages (CORS)
+      if (e.name === 'AbortError') throw e;
+      throw new LLMError(0, String(e.message || e), { model, provider });
+    }
     if (res.ok) break;
     const errText = await res.text().catch(() => '');
     // some OpenAI-compatible servers reject stream_options: retry once without it (only for that error)
@@ -103,7 +82,7 @@ async function chatCompletions({ url, key, model, messages, maxTokens, temperatu
       const j = JSON.parse(errText);
       detail = j.error?.message || (typeof j.error === 'string' ? j.error : '') || j.message || errText;
     } catch {
-      /* not JSON – keep the raw text */
+      /* not JSON, keep the raw text */
     }
     throw new LLMError(res.status, detail, { model, provider });
   }
@@ -155,20 +134,29 @@ async function chatCompletions({ url, key, model, messages, maxTokens, temperatu
   };
 }
 
-/** Generate a chat completion with the configured provider. */
+/**
+ * Generate a chat completion with the configured provider.
+ * `settings._meter`, when present, counts what left the device for this question.
+ */
 export async function generate(settings, { messages, maxTokens, temperature, topP, onToken, signal, purpose = 'answer' }) {
-  const p = settings.provider;
-  if (p === 'hf' || p === 'openai') {
-    try {
-      const r = await remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal });
-      recordUsage({ purpose, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
-      return r;
-    } catch (e) {
-      if (e.name !== 'AbortError') recordUsage({ purpose, failed: true });
-      throw e;
+  const cloud = dataClass(settings) === 'cloud';
+  // Confidential mode: refuse before anything is sent off this device
+  if (settings.confidential && cloud) throw new LLMError('confidential', '', { provider: settings.provider });
+  if (settings.provider === 'browser' || settings.provider === 'extractive') return localGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal });
+  try {
+    const r = await remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal, purpose });
+    recordUsage({ purpose, promptTokens: r.promptTokens, completionTokens: r.completionTokens });
+    const m = settings._meter;
+    if (m && cloud) {
+      m.host = dataHost(settings);
+      m.calls++;
+      m.promptTokens += r.promptTokens;
     }
+    return r;
+  } catch (e) {
+    if (e.name !== 'AbortError') recordUsage({ purpose, failed: true });
+    throw e;
   }
-  return localGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal });
 }
 
 /** Model id sent to the router: an optional provider policy (":fastest" / ":cheapest") is appended. */
@@ -177,8 +165,9 @@ export function hfModelId(settings) {
   return settings.hfPolicy && !m.includes(':') ? `${m}:${settings.hfPolicy}` : m;
 }
 
-async function remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal }) {
+async function remoteGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal, purpose }) {
   const p = settings.provider;
+  const info = PROVIDERS[p];
   const common = {
     messages,
     maxTokens: maxTokens ?? settings.maxTokens,
@@ -202,13 +191,64 @@ async function remoteGenerate(settings, { messages, maxTokens, temperature, topP
       extraHeaders: billTo ? { 'X-HF-Bill-To': billTo } : undefined,
     });
   }
+  if (info?.group === 'key') {
+    const key = apiKeyOf(settings);
+    if (!key) throw new Error(`Enter your ${info.label} API key in Settings (it is kept only in memory for this tab, so it is needed again after a reload).`);
+    const model = keyModelOf(settings);
+    if (info.kind === 'anthropic') {
+      const { claudeGenerate } = await import('./anthropic.js');
+      try {
+        // short helper calls (judge, rewrite, suggestions) think less: faster and cheaper
+        const effort = purpose === 'answer' || purpose === 'vanilla' ? settings.claudeEffort : 'low';
+        return await claudeGenerate({ ...common, apiKey: key, model, effort });
+      } catch (e) {
+        if (e.name === 'AbortError') throw e;
+        throw new LLMError(e.status ?? 0, e.detail, { model, provider: p });
+      }
+    }
+    return chatCompletions({
+      ...common,
+      url: `${info.baseUrl}/chat/completions`,
+      key,
+      model,
+      provider: p,
+      extraHeaders: p === 'openrouter' ? { 'X-Title': 'RAG AI Studio' } : undefined,
+    });
+  }
   return chatCompletions({
     ...common,
     url: settings.openaiBaseUrl.replace(/\/$/, '') + '/chat/completions',
     key: settings.openaiKey,
     model: settings.openaiModel,
-    provider: 'openai',
+    provider: 'custom',
   });
+}
+
+/** Model ids a key provider offers to this key (a free listing call, no tokens billed). */
+export async function listModels(settings, id = settings.provider) {
+  const info = PROVIDERS[id];
+  const key = apiKeyOf(settings, id);
+  if (!key) throw new Error('Enter the API key first.');
+  if (info.kind === 'anthropic') {
+    const { claudeModels } = await import('./anthropic.js');
+    try {
+      return await claudeModels(key);
+    } catch (e) {
+      throw new LLMError(e.status ?? 0, e.detail, { provider: id });
+    }
+  }
+  let res;
+  try {
+    res = await fetch(`${info.baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` } });
+  } catch (e) {
+    throw new LLMError(0, String(e.message || e), { provider: id });
+  }
+  if (!res.ok) throw new LLMError(res.status, await res.text().catch(() => ''), { provider: id });
+  const j = await res.json();
+  return (j.data || j.models || [])
+    .map((m) => String(m.id || m.name || '').replace(/^models\//, ''))
+    .filter(Boolean)
+    .sort();
 }
 
 async function localGenerate(settings, { messages, maxTokens, temperature, topP, onToken, signal }) {

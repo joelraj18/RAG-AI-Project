@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Square, Loader2, Sparkles, Columns2, FileText, Download, Upload, AlertCircle, KeyRound, Gauge, BarChart3, ThumbsUp, ThumbsDown, PanelLeft, ArrowUp } from 'lucide-react';
+import { Square, Loader2, Sparkles, Columns2, FileText, Download, Upload, AlertCircle, KeyRound, Gauge, BarChart3, ThumbsUp, ThumbsDown, PanelLeft, ArrowUp, Lock } from 'lucide-react';
 import Markdown from '../components/Markdown.jsx';
 import EvalPanel, { ConfidenceBadge } from '../components/EvalPanel.jsx';
 import Dashboard from '../components/Dashboard.jsx';
@@ -8,6 +8,7 @@ import SessionsRail from '../components/SessionsRail.jsx';
 import { runQuestion, hydrateRecord, suggestQuestions } from '../lib/pipeline.js';
 import { resolveCitation } from '../lib/evaluate.js';
 import { providerLabel } from '../lib/llm.js';
+import { PROVIDERS, apiKeyOf, llmReady, dataClass } from '../lib/providers.js';
 import { preset } from '../lib/presets.js';
 import { matchProfile, PROFILES } from '../lib/settings.js';
 import { vectorsReady } from '../lib/kb.js';
@@ -22,7 +23,7 @@ const PHASE = {
   retrieving: 'Retrieving relevant passages…',
   generating: 'Generating grounded answer…',
   evaluating: 'Evaluating groundedness & relevance…',
-  correcting: 'Weak grounding — rewriting the query and retrying…',
+  correcting: 'Weak grounding, rewriting the query and retrying…',
 };
 
 function ErrorCard({ rec }) {
@@ -128,7 +129,8 @@ export default function ChatView() {
   // LLM call per document, so they are generated only when asked for (or enabled in Settings).
   const p = preset(settings.preset);
   const docKey = activeDocs.map((d) => d.id).join('|');
-  const llmOn = settings.provider !== 'extractive' && (settings.provider !== 'hf' || !!settings.hfToken);
+  const llmOn = llmReady(settings) && !(settings.confidential && dataClass(settings) === 'cloud');
+  const keyProvider = PROVIDERS[settings.provider]?.group === 'key' ? PROVIDERS[settings.provider] : null;
   const [aiRequested, setAiRequested] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [suggestedAI, setSuggestedAI] = useState(false);
@@ -164,8 +166,8 @@ export default function ChatView() {
 
   if (!activeCollection || !activeDocs.length) {
     return (
-      <Empty icon={FileText} title="Chat with any document.">
-        Add a PDF, Word, HTML, Markdown or text file — or start with the built-in guide to RAG. Everything is processed and stored privately in your browser.
+      <Empty icon={FileText} title="Chat with any document">
+        Add a PDF, Word, HTML, Markdown or text file, or start with the built-in guide to RAG. Everything is processed and stored privately in your browser.
         <div className="mt-6">
           <Button size="lg" onClick={() => setView('library')}>Add a document</Button>
         </div>
@@ -314,8 +316,8 @@ export default function ChatView() {
             {settings.provider === 'hf' && (!settings.hfToken || editingToken) && (
               <div className="mb-6 rounded-[22px] bg-white p-5 shadow-card dark:bg-slate-900">
                 <div className="mb-2 flex items-center gap-2 text-[15px] font-semibold">
-                  <KeyRound className="h-4 w-4" /> Enter your Hugging Face token to start.
-                  <span className="font-normal text-slate-500">Needed once per visit — it is never saved.</span>
+                  <KeyRound className="h-4 w-4" /> Enter your Hugging Face token to start
+                  <span className="font-normal text-slate-500">Needed once per visit. It is never saved.</span>
                 </div>
                 <div className="flex flex-wrap items-start gap-2">
                   <div className="min-w-[240px] flex-1">
@@ -334,6 +336,36 @@ export default function ChatView() {
                 </div>
               </div>
             )}
+            {keyProvider && (!apiKeyOf(settings) || editingToken) && (
+              <div className="mb-6 rounded-[22px] bg-white p-5 shadow-card dark:bg-slate-900">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[15px] font-semibold">
+                  <KeyRound className="h-4 w-4" /> Enter your {keyProvider.label} API key to start
+                  <span className="font-normal text-slate-500">Needed once per visit. It is never saved.</span>
+                </div>
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="min-w-[240px] flex-1">
+                    <SecretInput
+                      value={apiKeyOf(settings)}
+                      onChange={(v) => {
+                        setEditingToken(true);
+                        setSettings({ apiKeys: { ...settings.apiKeys, [settings.provider]: v } });
+                      }}
+                      placeholder={keyProvider.keyPrefix ? `${keyProvider.keyPrefix}…` : 'API key'}
+                      label={`${keyProvider.label} API key`}
+                      provider={settings.provider}
+                    />
+                  </div>
+                  <Button disabled={!apiKeyOf(settings)} onClick={() => setEditingToken(false)}>Use key</Button>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">Questions and the retrieved excerpts will be sent to {keyProvider.company}. Your files stay on this device.</p>
+              </div>
+            )}
+            {settings.confidential && dataClass(settings) === 'cloud' && (
+              <p className="mb-6 flex flex-wrap items-center gap-2 rounded-[18px] bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200">
+                <Lock className="h-4 w-4" /> Confidential mode is on, so {PROVIDERS[settings.provider].label} is blocked and nothing will be sent. Choose Extractive, the in-browser model or a local model.
+                <LinkButton onClick={() => setView('settings')}>Open Settings ›</LinkButton>
+              </p>
+            )}
             {settings.provider === 'browser' && noGpu && (
               <p className="mb-6 rounded-[18px] bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
                 No WebGPU in this browser: the in-browser model runs on the CPU and will be slow. Hugging Face Inference is much faster.
@@ -343,8 +375,8 @@ export default function ChatView() {
             {!messages.length && (
               <div className="pt-4">
                 <h2 className="headline text-3xl leading-tight sm:text-4xl md:text-5xl">
-                  Ask {multiDoc ? `${activeDocs.length} documents` : activeDocs[0].name}.{' '}
-                  <span className="text-slate-500 dark:text-slate-400">Every answer cites its pages and shows how it was made.</span>
+                  Ask {multiDoc ? `${activeDocs.length} documents` : activeDocs[0].name}
+                  <span className="ml-3 text-slate-500 dark:text-slate-400">Every answer cites its pages and shows how it was made</span>
                 </h2>
                 {kbLoading && (
                   <p className="mt-5 flex items-center gap-2 text-sm text-slate-500">
@@ -355,7 +387,7 @@ export default function ChatView() {
                   <>
                     <div className="mt-10 mb-4 flex flex-wrap items-end justify-between gap-2">
                       <h3 className="headline text-xl">
-                        Try asking. <span className="text-slate-500 dark:text-slate-400">{suggestedAI ? 'Written by AI for these documents.' : 'Based on the document’s sections.'}</span>
+                        Try asking<span className="ml-3 text-slate-500 dark:text-slate-400">{suggestedAI ? 'Written by AI for these documents' : 'Based on the document’s sections'}</span>
                       </h3>
                       {llmOn && !p.sampleQuestions && !suggestedAI && (
                         <LinkButton onClick={() => setAiRequested(true)} disabled={aiBusy} className="text-sm disabled:opacity-50">

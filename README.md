@@ -3,7 +3,8 @@
 Chat with **any document**: manuals, policies, contracts, papers, reports, handbooks. Every answer cites the pages it
 used and shows how long each step took, how well grounded it is, and how confident you can be in it. RAG AI Studio is a
 React app that runs entirely in the browser, so it is free to host on GitHub Pages or Hugging Face Spaces. It needs no
-server and no GPU bill, and your files never leave your machine.
+server and no GPU bill. Your files never leave your machine; with a cloud model, only the excerpts needed for each answer
+are sent to the provider you chose (see [Privacy and data flow](#privacy-and-data-flow)).
 
 It started as the web version of a Colab project ("Medical Assistant: RAG-based Clinical Decision Support using The Merck
 Manual") and has been generalised to any document. "Medical" is now one of six document-type presets.
@@ -17,6 +18,8 @@ Manual") and has been generalised to any document. "Medical" is now one of six d
 | ![library](docs/library.png) | ![retrieval](docs/retrieval-trace.png) |
 | **Settings with trade-off guidance** | **Learn RAG (dark mode)** |
 | ![settings](docs/settings.png) | ![learn](docs/learn-dark.png) |
+| **Data and privacy, Confidential mode** | **Bring your own key: Claude, DeepSeek and more** |
+| ![privacy](docs/privacy.png) | ![providers](docs/providers.png) |
 
 ![Evaluation Lab](docs/evaluation-lab.png)
 
@@ -100,16 +103,42 @@ The interface follows a clean, store-like design language:
 | Best answer quality | **Best quality** profile (hybrid + rerank, k=5 + neighbours, strict judge, corrective RAG) with a 70B HF model |
 | Fastest | **Fast** profile with extractive mode or an 8B model, and the judge off or combined |
 | Least storage | MiniLM embeddings, and free the original PDFs after indexing ("Free … MB") |
-| Full privacy | In-browser model or local Ollama |
+| Confidential documents | **Confidential mode** with Extractive, the in-browser model or Ollama on localhost |
+| Best quality, own key | Claude Opus 5.5 (or Sonnet 5.5 for lower cost) with the Best quality profile |
+| Lowest price, own key | DeepSeek Chat or Claude Haiku 4.5 with the combined judge |
 
-## LLM options (all free)
+## LLM options
 
-| Provider | Setup | Notes |
+Free:
+
+| Provider | Setup | Data |
 |---|---|---|
-| **Extractive** (default) | none | Quotes the best sentences with citations. Instant, but no LLM judge. |
-| **Hugging Face Inference** ⭐ | free token from <https://huggingface.co/settings/tokens> (enable *Inference Providers*) | Llama 3.1/3.3, Qwen 2.5, Mistral, Gemma |
-| **OpenAI-compatible** | e.g. `OLLAMA_ORIGINS=* ollama serve` and then `ollama pull mistral:7b-instruct` | Same Mistral-7B as the notebook. Groq and OpenRouter free tiers also work. |
-| **In-browser** | none (0.4–1.1 GB downloaded once) | Private; use WebGPU (Chrome/Edge) for usable speed |
+| **Extractive** (default) | none. Quotes the best sentences with citations; instant, but no LLM judge | stays on device |
+| **In-browser** | none (0.4 to 1.1 GB downloaded once); use WebGPU (Chrome, Edge) for usable speed | stays on device |
+| **Hugging Face Inference** ⭐ | free token from <https://huggingface.co/settings/tokens> (enable *Inference Providers*) | excerpts sent to Hugging Face |
+| **Local or custom endpoint** | e.g. `OLLAMA_ORIGINS=* ollama serve`, then `ollama pull mistral:7b-instruct` | stays on device for `localhost`, otherwise sent to that server |
+
+With your own API key (you pay that company directly; keys are masked and kept in memory only):
+
+| Provider | Get a key | Default model | How it is called |
+|---|---|---|---|
+| **Claude** (Anthropic) | <https://console.anthropic.com/settings/keys> | `claude-opus-5-5` (also `claude-sonnet-5-5`, `claude-haiku-4-5`) | official `@anthropic-ai/sdk`, streamed |
+| **DeepSeek** | <https://platform.deepseek.com/api_keys> | `deepseek-chat` (also `deepseek-reasoner`) | OpenAI-compatible API |
+| **OpenAI** | <https://platform.openai.com/api-keys> | `gpt-4o-mini` | OpenAI-compatible API |
+| **Google Gemini** | <https://aistudio.google.com/apikey> | `gemini-2.5-flash` | Gemini's OpenAI-compatible endpoint |
+| **Groq** | <https://console.groq.com/keys> | `llama-3.3-70b-versatile` | OpenAI-compatible API |
+| **Mistral** | <https://console.mistral.ai/api-keys> | `mistral-small-latest` | OpenAI-compatible API |
+| **OpenRouter** | <https://openrouter.ai/keys> | `deepseek/deepseek-chat` | one key for hundreds of models |
+
+- **Load models** lists the models your key can use (a free listing call), so you are not stuck with the defaults above.
+- **Claude details:** Opus 5.5 and Sonnet 5.5 think before answering. The app does not send temperature or top_p to them
+  (they choose their own sampling) and lets you pick the thinking **effort** (low, medium or high; judge and rewrite calls
+  always use low). **Refusal fallbacks are switched on** for these two models (`fallbacks: "default"`, beta
+  `server-side-fallback-2026-07-01`): if the model declines a request, Anthropic re-runs it on its recommended fallback
+  model inside the same call, and the test button shows which model served it. A request declined by every model shows a
+  clear "The model declined this request" message.
+- **Browser blocks:** a provider that does not accept requests straight from a web page (CORS) shows "Could not reach …";
+  use the same model through OpenRouter in that case.
 
 ### Free vs PRO Hugging Face accounts
 
@@ -123,7 +152,7 @@ that fit the plan (**Settings → Language model → Your plan**):
 | Extra calls | none automatic (no AI suggestions, no corrective retry) | corrective retry, AI-written starter questions |
 | LLM calls per question | ~2 (3 for follow-ups) | ~3 (up to 7 when a retry is needed) |
 | Provider policy | `:cheapest` stretches credits | `:fastest` for latency |
-| Organisation billing | – | optional “Bill to organisation” (`X-HF-Bill-To`) |
+| Organisation billing | not available | optional “Bill to organisation” (`X-HF-Bill-To`) |
 
 Safeguards for both plans:
 - **No hidden spending:** opening a chat makes no LLM calls, and token checks use the free endpoint.
@@ -142,9 +171,36 @@ Safeguards for both plans:
 **API tokens are never saved.** The Hugging Face token (and any API key) is typed into a masked field and kept only in
 the memory of the current tab. It is never written to localStorage, IndexedDB, cookies, exports or the URL, and tokens
 saved by older versions are purged on load. Reloading or closing the tab erases it, so you enter it once per visit. It is sent
-over HTTPS only to the provider you chose; the site has no server of its own. The **Safety** button next to the field explains
+only to the provider you chose; the site has no server of its own. The **Safety** button next to the field explains
 this and lists best practices: use a fine-grained token with only "Make calls to Inference Providers", and revoke it when
 you're done. If your browser offers to save it as a password, choose "Never".
+
+## Privacy and data flow
+
+What happens when you upload confidential files:
+
+| | Where it goes |
+|---|---|
+| Original files, extracted text, chunks, embeddings, search indexes | **this device only** (IndexedDB in your browser) |
+| Sessions, answers, evaluations, Evaluation Lab runs | **this device only** |
+| Tokens and API keys | **memory only**, never saved; sent only to the provider you chose |
+| Usage counters | this device only, counts only (never prompts or keys) |
+| The website host (GitHub Pages, Hugging Face Spaces) | serves static files; there is no upload endpoint, so it never receives your files |
+| Model downloads (Hugging Face Hub, jsDelivr) | fetch model files only; they see your IP address but no document text |
+| **Cloud model you choose** (Hugging Face, Claude, DeepSeek, OpenAI, Gemini, Groq, Mistral, OpenRouter, a remote custom URL) | **receives** your question, your last two questions and shortened answers, and the retrieved excerpts (about k passages, roughly 1 000 to 2 000 tokens); the judge receives the excerpts and the answer; optional rewriting, HyDE and AI starter questions send the question, section titles or one excerpt |
+
+So whole files are never uploaded, but a cloud model does see the passages that answer each question, and those can be
+confidential. How long they are kept, and whether they are used for training, is decided by that provider's data policy
+(linked next to each key field). Every answer shows a **Data sent** line with the host, the number of requests and the prompt
+tokens.
+
+**Confidential mode** (Settings → Data and privacy) blocks every model that would send text off the device. Only Extractive,
+the in-browser model and endpoints on `localhost` remain available, and nothing is sent anywhere. Turn it on for contracts,
+medical records, HR files and anything under NDA.
+
+Outside the app's control: browser extensions that can read pages, shared or managed computers, and device backups. Stored
+documents are not encrypted by the app; they rely on your device and browser profile. Use **Clear all data** on a shared
+machine.
 
 ## Architecture
 

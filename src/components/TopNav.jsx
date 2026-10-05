@@ -3,6 +3,7 @@ import { Sparkles, Moon, Sun, Menu, X, Library, ChevronDown, Check, Plus, Pencil
 import { cx, useDialog } from './ui.jsx';
 import { useStore } from '../state/store.jsx';
 import { callsPerQuestion } from '../lib/hf.js';
+import { PROVIDERS, apiKeyOf, dataClass, dataRecipient } from '../lib/providers.js';
 
 export const NAV = [
   { id: 'chat', label: 'Chat' },
@@ -101,18 +102,26 @@ function Ribbon() {
   let text;
   let action;
   if (!activeDocs.length) {
-    text = 'Chat with any PDF, Word, HTML or Markdown document — processed privately in your browser.';
+    text = 'Chat with any PDF, Word, HTML or Markdown document, processed privately in your browser.';
     action = ['Add a document', 'library'];
+  } else if (settings.confidential) {
+    text = dataClass(settings) === 'cloud' ? `Confidential mode is on, so ${PROVIDERS[settings.provider].label} is blocked. Nothing leaves this device.` : 'Confidential mode on · nothing leaves this device.';
+    action = ['Privacy settings', 'settings'];
   } else if (settings.provider === 'extractive') {
     text = 'Get written answers and LLM evaluation for free with a Hugging Face token. It is never saved.';
     action = ['Set up', 'settings'];
   } else if (settings.provider === 'hf' && !settings.hfToken) {
     text = 'Enter your Hugging Face token to start. It stays in this tab’s memory only.';
     action = ['Add token', 'settings'];
+  } else if (PROVIDERS[settings.provider]?.group === 'key' && !apiKeyOf(settings)) {
+    text = `Enter your ${PROVIDERS[settings.provider].label} API key to start. It stays in this tab’s memory only.`;
+    action = ['Add key', 'settings'];
   } else {
     const per = callsPerQuestion(settings).base;
     const plan = settings.provider === 'hf' ? `${hfAccount?.name ? `${hfAccount.name} · ` : ''}${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan · ` : '';
-    text = `${plan}about ${per} LLM call${per === 1 ? '' : 's'} per question · ${usage.visit.calls} used this visit.`;
+    const where = dataClass(settings) === 'cloud' ? `excerpts go to ${dataRecipient(settings)} · ` : 'on this device · ';
+    text = `${plan}${where}about ${per} LLM call${per === 1 ? '' : 's'} per question · ${usage.visit.calls} used this visit.`;
+    if (!plan) text = text[0].toUpperCase() + text.slice(1);
     action = ['See usage', 'settings'];
   }
   return (

@@ -1,5 +1,5 @@
 // LLM usage meter: calls and tokens for this visit and for the current month (this browser),
-// split by purpose (answer, judge, rewrite…). Only counts are stored — never prompts or keys.
+// split by purpose (answer, judge, rewrite…). Only counts are stored, never prompts or keys.
 
 const KEY = 'rag-ai-studio.usage.v1';
 const listeners = new Set();

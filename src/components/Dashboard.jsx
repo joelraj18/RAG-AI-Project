@@ -13,7 +13,7 @@ export default function Dashboard({ session, open, onClose }) {
   const stepTotal = stepAvg.reduce((a, s) => a + s.v, 0) || 1;
   const conf = recs.map((r) => r.eval?.confidence?.level).filter(Boolean);
   return (
-    <Modal open={open} onClose={onClose} title={`Session dashboard — ${session?.title || ''}`} wide>
+    <Modal open={open} onClose={onClose} title={`Session dashboard · ${session?.title || ''}`} wide>
       <div className="space-y-5 p-5">
         {!recs.length ? (
           <p className="text-sm text-slate-500">Ask a few questions to see statistics.</p>
