@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Timer, ShieldCheck, Target, Quote, Sparkles, RefreshCw, AlertTriangle, Copy, Gauge, ListOrdered } from 'lucide-react';
+import { Timer, ShieldCheck, Target, Quote, Sparkles, RefreshCw, AlertTriangle, Copy, Gauge, ListOrdered, CloudUpload, Lock } from 'lucide-react';
 import { Badge, ScoreRing, Tabs, cx } from './ui.jsx';
 import { fmtMs, fmtNum } from '../lib/text.js';
 import { buildMessages } from '../lib/pipeline.js';
@@ -99,7 +99,7 @@ function Overview({ rec, onOpen }) {
             {rec.gen.tokensPerSec && <Badge color="blue">{rec.gen.tokensPerSec.toFixed(1)} tok/s</Badge>}
             <Badge color={rec.gen.truncated ? 'red' : 'green'}>
               finish: {rec.gen.finishReason}
-              {rec.gen.truncated ? ' (truncated — raise max tokens)' : ''}
+              {rec.gen.truncated ? ' (truncated, raise max tokens)' : ''}
             </Badge>
           </div>
         )}
@@ -133,6 +133,7 @@ function Overview({ rec, onOpen }) {
           <SourceCards rec={rec} onOpen={onOpen} compact />
         </div>
       )}
+      <DataSent rec={rec} />
     </div>
   );
 }
@@ -189,7 +190,7 @@ function RetrievalTab({ rec, onOpen }) {
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5 text-xs">
         <Badge color="violet">mode: {rec.effectiveMode}</Badge>
-        {rec.effectiveMode !== rec.config?.mode && <Badge color="amber">requested {rec.config?.mode} — semantic index not ready for every document</Badge>}
+        {rec.effectiveMode !== rec.config?.mode && <Badge color="amber">requested {rec.config?.mode}: semantic index not ready for every document</Badge>}
         <Badge>k = {rec.config?.k}</Badge>
         {rec.config?.rerank && <Badge color="violet">reranked</Badge>}
         {rec.config?.neighbors && <Badge color="blue">+ neighbours</Badge>}
@@ -217,6 +218,21 @@ function RetrievalTab({ rec, onOpen }) {
   );
 }
 
+/** What left the device for this answer: provider host, number of calls and prompt tokens. */
+export function DataSent({ rec }) {
+  const d = rec.dataSent;
+  if (!d || rec.phase !== 'done') return null;
+  const sent = d.cloud && d.calls > 0;
+  return (
+    <p className={cx('flex items-start gap-1.5 text-xs lg:col-span-2', sent ? 'text-amber-800 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-400')}>
+      {sent ? <CloudUpload className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+      {sent
+        ? `Data sent: ${d.calls} request${d.calls === 1 ? '' : 's'} to ${d.host} with about ${fmtNum(d.promptTokens)} prompt tokens (question, retrieved excerpts${rec.eval?.judge ? ', answer for the judge' : ''}). Nothing else left this device.`
+        : 'Data sent: none. This answer was produced entirely on this device.'}
+    </p>
+  );
+}
+
 function PromptTab({ rec }) {
   const { settings, docs } = useStore();
   const names = (rec.docIds || []).map((id) => docs.find((d) => d.id === id)?.name).filter(Boolean);
@@ -235,6 +251,7 @@ function PromptTab({ rec }) {
           {!rec.prompt && ' Prompt rebuilt from the saved sources (conversation history not included).'}
         </p>
       </Section>
+      <DataSent rec={rec} />
       {messages.map((m, i) => (
         <div key={i} className="rounded-2xl bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center justify-between px-4 pt-2.5 text-[11px] font-semibold text-slate-500 uppercase">
@@ -363,7 +380,7 @@ export default function EvalPanel({ rec }) {
             <ul className="mt-3 space-y-0.5 text-xs text-slate-500">
               {STEPS.filter((s) => rec.timings[s.key] > 0).map((s) => (
                 <li key={s.key}>
-                  <b>{s.label}</b> — {s.hint}
+                  <b>{s.label}</b>: {s.hint}
                 </li>
               ))}
             </ul>

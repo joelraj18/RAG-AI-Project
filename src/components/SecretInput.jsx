@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Info, ShieldCheck, X, ExternalLink } from 'lucide-react';
 import { Modal, Badge, cx, inputCls } from './ui.jsx';
+import { PROVIDERS, keyWarning } from '../lib/providers.js';
 
 /**
  * Masked input for API tokens. The value lives only in React state for this tab:
@@ -55,17 +56,20 @@ export default function SecretInput({ value, onChange, placeholder = 'hf_…', l
       </div>
       <p className="mt-1 flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-        {value ? 'Held in memory for this tab only — never saved. Cleared when you reload or close the tab.' : 'Not saved anywhere: you will enter it again after a reload.'}
+        {value ? 'Held in memory for this tab only and never saved. Cleared when you reload or close the tab.' : 'Not saved anywhere: you will enter it again after a reload.'}
       </p>
+      {keyWarning(provider === 'huggingface' ? 'hf' : provider, value) && <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">{keyWarning(provider === 'huggingface' ? 'hf' : provider, value)}</p>}
       <TokenSafetyModal open={info} onClose={() => setInfo(false)} provider={provider} />
     </div>
   );
 }
 
 export function TokenSafetyModal({ open, onClose, provider = 'huggingface' }) {
-  const hf = provider === 'huggingface';
+  const hf = provider === 'huggingface' || provider === 'hf';
+  const p = PROVIDERS[hf ? 'hf' : provider] || {};
+  const host = p.host || 'the endpoint you configured';
   return (
-    <Modal open={open} onClose={onClose} title="Your token: how it is handled & best practices">
+    <Modal open={open} onClose={onClose} title={hf ? 'Your token: how it is handled and best practices' : 'Your API key: how it is handled and best practices'}>
       <div className="space-y-5 p-5 text-sm">
         <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
           <h4 className="mb-2 flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
@@ -74,11 +78,11 @@ export function TokenSafetyModal({ open, onClose, provider = 'huggingface' }) {
           <ul className="list-disc space-y-1 pl-5 text-emerald-900 dark:text-emerald-200">
             <li>It is kept only in this browser tab’s memory (a JavaScript variable).</li>
             <li>It is <b>never</b> written to localStorage, IndexedDB, cookies, session exports, benchmark files or the URL. Tokens saved by older versions of the app are deleted automatically.</li>
-            <li>Reloading or closing the tab erases it — that is why you enter it once per visit.</li>
+            <li>Reloading or closing the tab erases it, which is why you enter it once per visit.</li>
             <li>
-              It is sent only over HTTPS, directly from your browser to {hf ? <code>router.huggingface.co</code> : 'the endpoint you configured'}. This website has no server of its own, so it never receives the token.
+              It is sent only to <code>{host}</code>, directly from your browser (over HTTPS for every cloud provider). This website has no server of its own, so it never receives the key.
             </li>
-            <li>The field is masked, and password managers are asked not to store it. If your browser still offers to save it as a password, choose <b>“Never”</b> — as long as you don’t save it in your browser, it is stored nowhere.</li>
+            <li>The field is masked, and password managers are asked not to store it. If your browser still offers to save it as a password, choose <b>“Never”</b>. As long as you don’t save it in your browser, it is stored nowhere.</li>
           </ul>
         </section>
         {hf && (
@@ -97,6 +101,29 @@ export function TokenSafetyModal({ open, onClose, provider = 'huggingface' }) {
             <a className="mt-3 inline-flex items-center gap-1 text-brand-700 underline dark:text-brand-300" href="https://huggingface.co/settings/tokens" target="_blank" rel="noreferrer noopener">
               Manage your tokens <ExternalLink className="h-3 w-3" />
             </a>
+          </section>
+        )}
+        {!hf && p.keysUrl && (
+          <section>
+            <h4 className="mb-2 font-semibold">Best practices</h4>
+            <ol className="list-decimal space-y-1.5 pl-5 text-slate-600 dark:text-slate-300">
+              <li>Create a separate key just for this app (for example named “RAG AI Studio”) so you can revoke it on its own.</li>
+              <li>Set a monthly spend limit or a small prepaid balance in your {p.label} account, so a leaked key cannot run up a large bill.</li>
+              <li>Use it only on a device you trust; avoid shared or public computers and browser extensions you do not trust.</li>
+              <li>Never paste it into chats, documents, screenshots, issues or source code.</li>
+              <li>Revoke it as soon as you think it was exposed, or when you no longer need it.</li>
+            </ol>
+            <p className="mt-3 text-slate-600 dark:text-slate-300">
+              The key only authorises requests. Your question and the retrieved excerpts are sent to {p.company || p.label} when you ask, and their data policy decides how long they are kept.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-4">
+              <a className="inline-flex items-center gap-1 text-brand-700 underline dark:text-brand-300" href={p.keysUrl} target="_blank" rel="noreferrer noopener">
+                Manage your keys <ExternalLink className="h-3 w-3" />
+              </a>
+              <a className="inline-flex items-center gap-1 text-brand-700 underline dark:text-brand-300" href={p.policyUrl} target="_blank" rel="noreferrer noopener">
+                {p.label} data policy <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           </section>
         )}
         <div className="flex flex-wrap gap-1.5">

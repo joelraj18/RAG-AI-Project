@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { UploadCloud, FileText, Trash2, Play, Pause, CheckCircle2, Loader2, PackageOpen, Package, Cpu, Scissors, Layers, Search, Database, Sparkles, Stethoscope, HardDrive, XCircle, FileType2, Globe, FileCode2, Plus } from 'lucide-react';
+import { UploadCloud, FileText, Trash2, Play, Pause, CheckCircle2, Loader2, PackageOpen, Package, Cpu, Scissors, Layers, Search, Database, Sparkles, Stethoscope, HardDrive, XCircle, FileType2, Globe, FileCode2, Plus, CloudUpload, Lock } from 'lucide-react';
 import { Button, Card, Badge, Progress, Stat, cx, download, TagBadges, PageHeader, SectionTitle, Shelf, LinkButton, useDialog } from '../components/ui.jsx';
 import { ingestFile, exportPack, importPack, forget, resetEmbeddings, docBytes } from '../lib/kb.js';
 import { ACCEPT } from '../lib/loaders/index.js';
@@ -8,6 +8,7 @@ import { EMBED_MODELS, embedModelInfo } from '../lib/workers.js';
 import { fmtMs, fmtNum, fmtBytes } from '../lib/text.js';
 import { RAG_GUIDE_NAME, RAG_GUIDE_TEXT, MEDICAL_DEMO_NAME, MEDICAL_DEMO_TEXT } from '../lib/demo.js';
 import { useStore } from '../state/store.jsx';
+import { dataClass, dataRecipient } from '../lib/providers.js';
 
 const STAGES = [
   { id: 'load', label: 'Load', icon: FileText, desc: 'Extract text per page' },
@@ -156,7 +157,7 @@ function DocCard({ d }) {
         </div>
         <p className="mt-1 text-[11px] text-slate-500">{model.why}</p>
         {!complete && <Progress value={total ? done / total : 0} className="mt-2" color="bg-violet-500" />}
-        {es?.running && modelStatus?.loading && <p className="mt-1 text-[11px] text-slate-500">Downloading {model.label} ({Math.round(modelStatus.progress * 100)}%) — cached after first use.</p>}
+        {es?.running && modelStatus?.loading && <p className="mt-1 text-[11px] text-slate-500">Downloading {model.label} ({Math.round(modelStatus.progress * 100)}%), cached after first use.</p>}
       </div>
     </Card>
   );
@@ -169,6 +170,7 @@ export default function LibraryView() {
   const fileRef = useRef(null);
   const packRef = useRef(null);
   const busy = queue.some((q) => q.status === 'running');
+  const cloud = dataClass(settings) === 'cloud' && !settings.confidential;
 
   async function handleFiles(files) {
     const list = [...files];
@@ -215,7 +217,7 @@ export default function LibraryView() {
       <div className="mx-auto max-w-[1100px] px-4 pb-16 sm:px-6">
         <PageHeader
           title="Documents"
-          tagline="The best way to understand what you read."
+          tagline="The best way to understand what you read"
           links={
             <>
               <LinkButton onClick={() => setView('learn')}>How RAG works ↗</LinkButton>
@@ -246,7 +248,7 @@ export default function LibraryView() {
           </div>
         )}
 
-        <SectionTitle title="Add documents." sub="PDF, Word, HTML, Markdown or text — several at once." />
+        <SectionTitle title="Add documents" sub="PDF, Word, HTML, Markdown or text, several at once" />
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -269,9 +271,13 @@ export default function LibraryView() {
           )}
         >
           {busy ? <Loader2 className="h-12 w-12 animate-spin text-brand-600" strokeWidth={1.25} /> : <UploadCloud className="h-12 w-12 text-brand-600" strokeWidth={1.25} />}
-          <p className="headline mt-4 text-2xl">{busy ? 'Processing…' : 'Drop files here.'}</p>
+          <p className="headline mt-4 text-2xl">{busy ? 'Processing…' : 'Drop files here'}</p>
           <p className="mt-1 text-[15px] text-slate-500">
             or <span className="text-brand-700 dark:text-brand-400">browse your computer</span> · processed privately in your browser
+          </p>
+          <p className={cx('mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs', cloud ? 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300')}>
+            {cloud ? <CloudUpload className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+            {cloud ? `Files stay on this device. Answers send the relevant excerpts to ${dataRecipient(settings)}.` : 'Files and answers stay on this device. Nothing is uploaded.'}
           </p>
           <p className="mt-3 text-xs text-slate-400">
             {settings.chunkSize}-token chunks · {settings.chunkOverlap} overlap · {embedModelInfo(settings.embedModel).label} embeddings · added to “{activeCollection?.name || 'My library'}”
@@ -294,7 +300,7 @@ export default function LibraryView() {
           </div>
         )}
 
-        <SectionTitle className="mt-16" title="Try it now." sub="Built-in samples, ready in a second." />
+        <SectionTitle className="mt-16" title="Try it now" sub="Built-in samples, ready in a second" />
         <Shelf>
           <button disabled={busy} onClick={() => demo(RAG_GUIDE_NAME, RAG_GUIDE_TEXT)} className="flex h-72 w-80 flex-col rounded-[18px] bg-ink p-7 text-left text-white shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-card-hover disabled:opacity-60 dark:bg-slate-900" aria-label="Load demo: Guide to RAG">
             <span className="eyebrow text-eyebrow-dark">New</span>
@@ -311,7 +317,7 @@ export default function LibraryView() {
           <button disabled={busy} onClick={() => packRef.current?.click()} className="flex h-72 w-80 flex-col rounded-[18px] bg-white p-7 text-left shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-card-hover disabled:opacity-60 dark:bg-slate-900" aria-label="Import knowledge pack">
             <span className="eyebrow">Share</span>
             <span className="headline mt-2 text-[28px] leading-tight">Knowledge pack</span>
-            <span className="mt-2 text-[15px] text-slate-500">Import a processed document — chunks and embeddings included, no waiting.</span>
+            <span className="mt-2 text-[15px] text-slate-500">Import a processed document with chunks and embeddings included, no waiting.</span>
             <PackageOpen className="mt-auto h-10 w-10 text-brand-600" strokeWidth={1.25} />
           </button>
         </Shelf>
@@ -321,8 +327,8 @@ export default function LibraryView() {
           <>
             <SectionTitle
               className="mt-12"
-              title="Your library."
-              sub={`${docs.length} document${docs.length === 1 ? '' : 's'} · ${fmtBytes(totalBytes)} stored on this device.`}
+              title="Your library"
+              sub={`${docs.length} document${docs.length === 1 ? '' : 's'} · ${fmtBytes(totalBytes)} stored on this device`}
               right={<LinkButton onClick={() => setView('chat')}>Go to chat ›</LinkButton>}
             />
             <Shelf>

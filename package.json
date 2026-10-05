@@ -24,6 +24,7 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@huggingface/transformers": "^4.3.0",
     "idb": "^8.0.3",
     "lucide-react": "^1.52.0",

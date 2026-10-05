@@ -72,7 +72,7 @@ describe('Hugging Face client', () => {
   it('retries without stream_options only when the server rejects that field', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(new Response('unknown field stream_options', { status: 400 })).mockResolvedValueOnce(sse('ok'));
     vi.stubGlobal('fetch', fetch);
-    await generate({ ...hf, provider: 'openai', openaiBaseUrl: 'http://x/v1' }, msg);
+    await generate({ ...hf, provider: 'custom', openaiBaseUrl: 'http://x/v1' }, msg);
     expect(JSON.parse(fetch.mock.calls[1][1].body).stream_options).toBeUndefined();
     const fetch2 = vi.fn().mockResolvedValue(new Response('{"error":"Model not supported"}', { status: 400 }));
     vi.stubGlobal('fetch', fetch2);

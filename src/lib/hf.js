@@ -1,6 +1,8 @@
 // Hugging Face account helpers: plan detection (free vs PRO), plan-aware defaults,
 // a model catalogue with cost guidance, friendly error messages and call estimates.
 
+import { PROVIDERS } from './providers.js';
+
 export const ROUTER_URL = 'https://router.huggingface.co/v1/chat/completions';
 export const BILLING_URL = 'https://huggingface.co/settings/billing';
 export const TOKENS_URL = 'https://huggingface.co/settings/tokens';
@@ -49,12 +51,12 @@ export const isLargeModel = (id) => /(?:^|[^\d])(?:[3-9]\d|\d{3})b/i.test(String
 export const PLAN_DEFAULTS = {
   free: {
     label: 'Free',
-    summary: '8B model, one combined judge call, no automatic extra calls — about 2 LLM calls per question (3 for follow-ups).',
+    summary: '8B model, one combined judge call, no automatic extra calls, about 2 LLM calls per question (3 for follow-ups).',
     values: { hfModel: 'meta-llama/Llama-3.1-8B-Instruct', judgeMode: 'combined', corrective: false, hyde: false, condense: true, maxTokens: 512, aiSuggestions: false },
   },
   pro: {
     label: 'PRO',
-    summary: '70B model, strict two-call judge, corrective retry and AI-written suggestions — best quality, about 3 LLM calls per question (up to 7 when a retry is needed).',
+    summary: '70B model, strict two-call judge, corrective retry and AI-written suggestions. Best quality, about 3 LLM calls per question (up to 7 when a retry is needed).',
     values: { hfModel: 'meta-llama/Llama-3.3-70B-Instruct', judgeMode: 'strict', corrective: true, hyde: false, condense: true, maxTokens: 768, aiSuggestions: true },
   },
 };
@@ -77,28 +79,51 @@ export function estimateLabCalls(settings, configs, questions, retrievalOnly) {
   }, 0);
 }
 
-/** Map HTTP failures from the router to an actionable message. */
+/** Map HTTP failures from the router or a provider API to an actionable message. */
 export function friendlyError(status, detail = '', { model = '', provider = 'hf' } = {}) {
   const d = String(detail || '');
   const hf = provider === 'hf';
-  if (status === 401) return { title: 'Token rejected', hint: hf ? 'Check that the whole token was pasted (it starts with hf_) and that it has not been revoked.' : 'Check the API key for this endpoint.' };
-  if (status === 402 || /credit|quota|payment|billing|exceeded your monthly/i.test(d))
+  const p = PROVIDERS[provider] || {};
+  const name = p.label || 'this endpoint';
+  const keysAt = p.keysUrl ? ` Check it at ${p.keysUrl.replace(/^https:\/\//, '')}.` : '';
+  if (status === 'refusal')
+    return { title: 'The model declined this request', hint: `${name} declined to answer${d ? ` (${d})` : ''}. Rephrase the question, or try another model.` };
+  if (status === 'confidential') return { title: 'Confidential mode is on', hint: 'Nothing is sent off this device. Choose Extractive, In-browser or a local model, or turn Confidential mode off in Settings.' };
+  if (status === 0)
     return {
-      title: 'Monthly inference credits used up',
-      hint: 'Free accounts get a small monthly allowance and PRO accounts more. Wait for the monthly reset, upgrade to PRO or add billing on Hugging Face — or switch to Extractive, Ollama or the in-browser model, which are unlimited and free. Turning the judge off halves usage.',
-      billing: true,
+      title: `Could not reach ${name}`,
+      hint: hf
+        ? 'Check your connection, or whether a browser extension blocks huggingface.co.'
+        : 'Some providers do not accept requests straight from a web page (CORS). Use the same model through OpenRouter, or check your connection and any blocking extension.',
     };
+  if (status === 401)
+    return { title: hf ? 'Token rejected' : 'API key rejected', hint: hf ? 'Check that the whole token was pasted (it starts with hf_) and that it has not been revoked.' : `Check that the whole ${name} key was pasted and has not been revoked.${keysAt}` };
+  if (status === 402 || /credit|quota|payment|billing|insufficient.balance|exceeded your monthly/i.test(d))
+    return hf
+      ? {
+          title: 'Monthly inference credits used up',
+          hint: 'Free accounts get a small monthly allowance and PRO accounts more. Wait for the monthly reset, upgrade to PRO or add billing on Hugging Face, or switch to Extractive, Ollama or the in-browser model, which are unlimited and free. Turning the judge off halves usage.',
+          billing: true,
+        }
+      : { title: 'No credit left on this key', hint: `Add credit or a payment method in your ${name} account, or switch to a free option. Turning the judge off halves usage.`, billing: true };
   if (status === 403)
     return {
       title: 'Not allowed',
-      hint: /gated|license|access to model|restricted/i.test(d)
-        ? `“${model}” is a gated model: open its page on huggingface.co and accept the licence, or choose an ungated model such as Qwen/Qwen2.5-7B-Instruct.`
-        : 'The token is missing the permission “Make calls to Inference Providers”. Edit it at huggingface.co/settings/tokens (fine-grained → Inference).',
+      hint: !hf
+        ? `${name} refused this key for “${model}”. The key may lack access to this model or region.${keysAt}`
+        : /gated|license|access to model|restricted/i.test(d)
+          ? `“${model}” is a gated model: open its page on huggingface.co and accept the licence, or choose an ungated model such as Qwen/Qwen2.5-7B-Instruct.`
+          : 'The token is missing the permission “Make calls to Inference Providers”. Edit it at huggingface.co/settings/tokens (fine-grained, Inference).',
     };
   if (status === 404 || (status === 400 && /model|not supported|not found|does not exist/i.test(d)))
-    return { title: 'Model not available', hint: `“${model}” is not served by any inference provider for your account right now. Pick another model in Settings, or append :fastest to let Hugging Face choose a provider.` };
-  if (status === 429) return { title: 'Rate limited', hint: 'Too many requests in a short time (free accounts have lower limits). Wait a minute, or reduce parallel calls: turn off “RAG vs vanilla” and use the combined judge.' };
-  if (status >= 500) return { title: 'Provider temporarily unavailable', hint: 'The inference provider is overloaded or down. Try again shortly, or append :fastest to the model name to route to another provider.' };
+    return {
+      title: 'Model not available',
+      hint: hf
+        ? `“${model}” is not served by any inference provider for your account right now. Pick another model in Settings, or append :fastest to let Hugging Face choose a provider.`
+        : `“${model}” is not available to this key. Use Load models in Settings to pick one it can use.`,
+    };
+  if (status === 429) return { title: 'Rate limited', hint: 'Too many requests in a short time (free tiers have lower limits). Wait a minute, or reduce parallel calls: turn off “RAG vs vanilla” and use the combined judge.' };
+  if (status >= 500) return { title: 'Provider temporarily unavailable', hint: hf ? 'The inference provider is overloaded or down. Try again shortly, or append :fastest to the model name to route to another provider.' : `${name} is overloaded or down. Try again shortly.` };
   if (status === 400 && /context|too long|maximum.*tokens|max_tokens/i.test(d)) return { title: 'Prompt too long for this model', hint: 'Lower k, turn off neighbour expansion, or reduce max answer tokens.' };
   return { title: `Request failed (HTTP ${status})`, hint: d.slice(0, 240) };
 }

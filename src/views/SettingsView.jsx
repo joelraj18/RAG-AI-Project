@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bot, Search, Scale, Database, KeyRound, CheckCircle2, XCircle, Loader2, RotateCcw, ExternalLink, Zap, Layers, BookType } from 'lucide-react';
+import { Bot, Search, Scale, Database, KeyRound, CheckCircle2, XCircle, Loader2, RotateCcw, Zap, Layers, BookType, CloudUpload, Lock } from 'lucide-react';
 import { Button, Card, CardHeader, Field, Toggle, inputCls, cx, Badge, OptionCard, TagBadges, PageHeader, useDialog } from '../components/ui.jsx';
 import { PROVIDERS, BROWSER_MODELS, generate } from '../lib/llm.js';
 import { EMBED_MODELS, RERANK_MODEL } from '../lib/workers.js';
@@ -13,6 +13,9 @@ import { fmtMs, fmtBytes } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
 import SecretInput from '../components/SecretInput.jsx';
 import HfPanel from '../components/HfPanel.jsx';
+import ProviderPanel from '../components/ProviderPanel.jsx';
+import PrivacyCard from '../components/PrivacyCard.jsx';
+import { dataClass, isLocalUrl } from '../lib/providers.js';
 import { callsPerQuestion } from '../lib/hf.js';
 
 const MODES = [
@@ -56,16 +59,18 @@ export default function SettingsView() {
       <div className="mx-auto max-w-[1100px] space-y-8 px-4 pb-16 sm:px-6">
         <PageHeader
           title="Settings"
-          tagline="Tuned for speed, cost or quality."
+          tagline="Tuned for speed, cost, quality and privacy"
           links={
             <>
               <span className="flex flex-wrap gap-1 md:justify-end">
                 <TagBadges tags={['recommended', 'fastest', 'lightest', 'quality', 'private']} />
               </span>
-              <span className="text-sm text-slate-500">Saved in this browser. API tokens are never saved.</span>
+              <span className="text-sm text-slate-500">Saved in this browser. API tokens and keys are never saved.</span>
             </>
           }
         />
+
+        <PrivacyCard />
 
         <Card>
           <CardHeader icon={Zap} title="Quick profile" subtitle={`Sets retrieval, reranking, judging and embedding options in one click. Current: ${profile === 'custom' ? 'custom' : PROFILES[profile].label}.`} />
@@ -86,21 +91,41 @@ export default function SettingsView() {
         </Card>
 
         <Card>
-          <CardHeader icon={Bot} title="Language model" subtitle="All options are free." />
-          <div className="space-y-4 p-5">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {Object.entries(PROVIDERS).map(([id, p]) => (
-                <OptionCard key={id} selected={s.provider === id} onClick={() => setSettings({ provider: id })} title={p.label} tags={p.tags} why={p.why} cost={p.cost} />
-              ))}
-            </div>
+          <CardHeader icon={Bot} title="Language model" subtitle="Free options first. With your own key you can use Claude, DeepSeek, OpenAI and others; you pay that company directly." />
+          <div className="space-y-5 p-5">
+            {[
+              ['free', 'Free'],
+              ['key', 'Your own API key'],
+            ].map(([group, heading]) => (
+              <div key={group}>
+                <div className="eyebrow mb-2">{heading}</div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(PROVIDERS)
+                    .filter(([, p]) => p.group === group)
+                    .map(([id, p]) => {
+                      const where = dataClass({ ...s, provider: id });
+                      const blocked = s.confidential && where === 'cloud';
+                      return (
+                        <OptionCard key={id} selected={s.provider === id} disabled={blocked} onClick={() => setSettings({ provider: id })} title={p.label} tags={p.tags} why={p.why} cost={p.cost}>
+                          <span className={cx('mt-auto inline-flex items-center gap-1 pt-1 text-xs', where === 'cloud' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400')}>
+                            {where === 'cloud' ? <CloudUpload className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                            {blocked ? 'Blocked by Confidential mode' : where === 'cloud' ? `Sends excerpts to ${p.company || 'this endpoint'}` : 'Stays on this device'}
+                          </span>
+                        </OptionCard>
+                      );
+                    })}
+                </div>
+              </div>
+            ))}
             {s.provider === 'hf' && <HfPanel />}
-            {s.provider === 'openai' && (
+            {PROVIDERS[s.provider]?.group === 'key' && <ProviderPanel key={s.provider} id={s.provider} />}
+            {s.provider === 'custom' && (
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Base URL" hint="Ollama: http://localhost:11434/v1 (start with OLLAMA_ORIGINS=*). Groq: https://api.groq.com/openai/v1">
+                <Field label="Base URL" hint={isLocalUrl(s.openaiBaseUrl) ? 'Local: nothing leaves this machine. Ollama: http://localhost:11434/v1 (start it with OLLAMA_ORIGINS=*).' : 'Remote URL: the question and excerpts are sent to this server.'}>
                   <input value={s.openaiBaseUrl} onChange={(e) => setSettings({ openaiBaseUrl: e.target.value })} className={inputCls} />
                 </Field>
                 <Field label="API key" hint="Optional for local servers">
-                  <SecretInput value={s.openaiKey} onChange={(v) => setSettings({ openaiKey: v })} placeholder="sk-… (optional)" label="API key" provider="openai" />
+                  <SecretInput value={s.openaiKey} onChange={(v) => setSettings({ openaiKey: v })} placeholder="optional" label="API key" provider="custom" />
                 </Field>
                 <Field label="Model">
                   <input value={s.openaiModel} onChange={(e) => setSettings({ openaiModel: e.target.value })} className={inputCls} />
@@ -108,20 +133,20 @@ export default function SettingsView() {
               </div>
             )}
             {s.provider === 'browser' && (
-              <Field label="In-browser model" hint={hasGpu ? 'WebGPU detected — generation runs on your GPU.' : 'No WebGPU in this browser — generation will run on the CPU and be slow. Prefer Hugging Face Inference.'}>
+              <Field label="In-browser model" hint={hasGpu ? 'WebGPU detected: generation runs on your GPU.' : 'No WebGPU in this browser, so generation will run on the CPU and be slow. Prefer Hugging Face Inference.'}>
                 <select value={s.browserModel} onChange={(e) => setSettings({ browserModel: e.target.value })} className={inputCls}>
                   {BROWSER_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
               </Field>
             )}
-            {(s.provider === 'openai' || s.provider === 'browser') && (
+            {(s.provider === 'custom' || s.provider === 'browser') && (
               <div className="flex flex-wrap items-center gap-3">
                 <Button variant="secondary" icon={KeyRound} onClick={testConnection} disabled={test?.busy}>Test connection</Button>
                 {test?.busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 {test && !test.busy && (
                   <span className={cx('flex items-center gap-1.5 text-sm', test.ok ? 'text-emerald-600' : 'text-rose-600')}>
                     {test.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                    {test.ok ? `OK — “${test.text}” in ${fmtMs(test.ms)}` : test.text}
+                    {test.ok ? `OK: “${test.text}” in ${fmtMs(test.ms)}` : test.text}
                   </span>
                 )}
               </div>

@@ -14,6 +14,7 @@ import { db } from '../lib/db.js';
 import { fmtMs, uid, mean } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
 import { estimateLabCalls } from '../lib/hf.js';
+import { PROVIDERS, llmReady, dataClass } from '../lib/providers.js';
 
 const f2 = (x) => (x == null ? '–' : x.toFixed(2));
 const pctS = (x) => (x == null ? '–' : `${Math.round(x * 100)}%`);
@@ -101,7 +102,7 @@ export default function LabView() {
   const [history, setHistory] = useState([]);
   const [detail, setDetail] = useState(null);
   const abortRef = useRef(null);
-  const llm = settings.provider !== 'extractive';
+  const llm = llmReady(settings) && !(settings.confidential && dataClass(settings) === 'cloud');
 
   useEffect(() => {
     db.listBenchmarks().then(setHistory);
@@ -136,7 +137,7 @@ export default function LabView() {
   const qCount = parseQuestions(questions).length;
   const estCalls = estimateLabCalls(settings, runnable, qCount, retrievalOnly);
   const hfFree = settings.provider === 'hf' && effectivePlan === 'free';
-  const callLimit = settings.provider === 'hf' ? (effectivePlan === 'pro' ? 400 : 40) : Infinity;
+  const callLimit = settings.provider === 'hf' ? (effectivePlan === 'pro' ? 400 : 40) : PROVIDERS[settings.provider]?.group === 'key' ? 150 : Infinity;
 
   async function start() {
     const qs = parseQuestions(questions);
@@ -145,7 +146,7 @@ export default function LabView() {
     if (
       estCalls > callLimit &&
       !(await dialog.confirm(
-        `This experiment will make about ${estCalls} LLM calls${hfFree ? ', which can use a large part of the free monthly Hugging Face credits' : ''}. Tip: use “Retrieval only” to tune search for free, select fewer configurations, or turn the judge off.`,
+        `This experiment will make about ${estCalls} LLM calls${hfFree ? ', which can use a large part of the free monthly Hugging Face credits' : PROVIDERS[settings.provider]?.group === 'key' ? `, billed to your ${PROVIDERS[settings.provider].label} account` : ''}. Tip: use “Retrieval only” to tune search for free, select fewer configurations, or turn the judge off.`,
         { title: 'Large experiment', confirmLabel: 'Run anyway' }
       ))
     )
@@ -153,12 +154,14 @@ export default function LabView() {
     db.putKV(`questions:${activeCollection.id}`, questions);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    // no usable LLM (extractive, missing key or Confidential mode): run with extractive answers
+    const runSettings = llm ? settings : { ...settings, provider: 'extractive' };
     const r = {
       id: uid(),
       createdAt: Date.now(),
       collection: activeCollection.name,
       docs: activeDocs.map((d) => d.name),
-      provider: retrievalOnly ? 'retrieval only' : providerLabel(settings),
+      provider: retrievalOnly ? 'retrieval only' : providerLabel(runSettings),
       retrievalOnly,
       semantic: semanticReady,
       questions: qs.map((q) => q.question),
@@ -173,7 +176,7 @@ export default function LabView() {
       for (const q of qs) {
         if (ctrl.signal.aborted) break;
         setProgress({ n, total, label: `${c.id} · ${q.question.slice(0, 70)}`, elapsed: performance.now() - t0 });
-        const rec = await runQuestion({ question: q.question, sets, settings, cfg: { ...c.cfg, corrective: false, retrievalOnly }, signal: ctrl.signal });
+        const rec = await runQuestion({ question: q.question, sets, settings: runSettings, cfg: { ...c.cfg, corrective: false, retrievalOnly }, signal: ctrl.signal });
         const retrieval = c.cfg.vanilla ? null : retrievalMetrics(rec.sources, q.expected);
         r.results.push({ configId: c.id, question: q.question, expectedRaw: q.expectedRaw, retrieval, rec: slimRecord(rec) });
         n++;
@@ -210,7 +213,7 @@ export default function LabView() {
       <div className="mx-auto max-w-[1100px] space-y-8 px-4 pb-16 sm:px-6">
         <PageHeader
           title="Evaluation Lab"
-          tagline="The best way to choose your settings."
+          tagline="The best way to choose your settings"
           links={
             <>
               <span className="text-sm text-slate-500">Vanilla vs RAG · judged quality · retrieval accuracy · time per stage</span>
@@ -223,7 +226,7 @@ export default function LabView() {
           <CardHeader icon={FlaskConical} title="Experiment setup" subtitle={`${activeCollection.name} (${activeDocs.length} docs) · ${providerLabel(settings)}`} />
           <div className="grid gap-5 p-5 lg:grid-cols-2">
             <div>
-              <label className="text-sm font-medium">Questions — one per line, optionally “question | expected pages”</label>
+              <label className="text-sm font-medium">Questions: one per line, optionally “question | expected pages”</label>
               <textarea value={questions} onChange={(e) => setQuestions(e.target.value)} rows={9} placeholder={'What is hybrid search? | 6\nHow is groundedness measured? | Guide p. 8'} className={cx(inputCls, 'mt-1 font-mono text-xs')} />
               <p className="mt-1 text-xs text-slate-500">
                 <Target className="mr-1 inline h-3 w-3" />
@@ -248,13 +251,13 @@ export default function LabView() {
               <div className="mt-3">
                 <Toggle checked={retrievalOnly} onChange={setRetrievalOnly} label="Retrieval only (instant, no LLM)" hint="Tune k and search modes quickly with hit@k / recall / MRR; skips generation and judging." />
               </div>
-              {!semanticReady && <p className="mt-2 text-xs text-amber-600">Semantic index not ready for every document — semantic/MMR/hybrid configs fall back to keyword search there.</p>}
-              {!llm && !retrievalOnly && <p className="mt-2 text-xs text-amber-600">Extractive provider: no LLM judge, only judge-free metrics.</p>}
+              {!semanticReady && <p className="mt-2 text-xs text-amber-600">Semantic index not ready for every document. Semantic, MMR and hybrid/configs fall back to keyword search there.</p>}
+              {!llm && !retrievalOnly && <p className="mt-2 text-xs text-amber-600">No language model ready (Extractive, a missing key or Confidential mode): answers are extractive and only judge-free metrics are computed.</p>}
               {qCount > 0 && (
                 <p className={`mt-3 text-xs ${estCalls > callLimit ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500'}`}>
                   {retrievalOnly || !llm
-                    ? `${runnable.length} configs × ${qCount} questions — no LLM calls.`
-                    : `${runnable.length} configs × ${qCount} questions ≈ ${estCalls} LLM calls${settings.provider === 'hf' ? ` (${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan)` : ''}.${estCalls > callLimit ? ' That is a lot for your plan — consider fewer configs or Retrieval only.' : ''}`}
+                    ? `${runnable.length} configs × ${qCount} questions, no LLM calls.`
+                    : `${runnable.length} configs × ${qCount} questions ≈ ${estCalls} LLM calls${settings.provider === 'hf' ? ` (${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan)` : ''}.${estCalls > callLimit ? ' That is a lot for your plan, so consider fewer configs or Retrieval only.' : ''}`}
                 </p>
               )}
               <div className="mt-4">

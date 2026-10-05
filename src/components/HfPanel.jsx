@@ -131,7 +131,7 @@ export default function HfPanel() {
         <div className="mb-1 text-sm font-medium">Your plan</div>
         <div className="grid gap-2 sm:grid-cols-3">
           <OptionCard selected={s.hfPlan === 'auto'} onClick={() => setSettings({ hfPlan: 'auto' })} title="Auto-detect" tags={['recommended']} why={hfAccount?.status === 'ok' ? `Detected: ${hfAccount.plan === 'pro' ? 'PRO' : 'Free'} account.` : 'Read from your token (free check, no credits).'} />
-          <OptionCard selected={s.hfPlan === 'free'} onClick={() => setSettings({ hfPlan: 'free' })} title="Free" tags={['lightest']} why="Small monthly inference allowance — keep calls few and models small." />
+          <OptionCard selected={s.hfPlan === 'free'} onClick={() => setSettings({ hfPlan: 'free' })} title="Free" tags={['lightest']} why="Small monthly inference allowance, so keep calls few and models small." />
           <OptionCard selected={s.hfPlan === 'pro'} onClick={() => setSettings({ hfPlan: 'pro' })} title="PRO" tags={['quality']} why="Larger monthly credits (and pay-as-you-go beyond them): 70B models and strict judging are fine." />
         </div>
         <div className={cx('mt-2 flex flex-wrap items-center gap-2 rounded-xl p-3 text-sm', planApplied ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-200' : 'bg-brand-50 text-brand-900 dark:bg-brand-900/30 dark:text-brand-100')}>
@@ -178,7 +178,7 @@ export default function HfPanel() {
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {info?.label || s.hfModel} is a large model: on a free account it can use up the monthly credits within a few dozen questions. Llama 3.1 8B or Qwen 2.5 7B are recommended.
           </p>
         )}
-        {!info && s.hfModel && <p className="mt-1 text-xs text-slate-500">Custom model — if it fails with “Model not available”, it is not served by an inference provider; try appending :fastest.</p>}
+        {!info && s.hfModel && <p className="mt-1 text-xs text-slate-500">Custom model. If it fails with “Model not available”, it is not served by an inference provider; try appending :fastest.</p>}
       </div>
 
       <Field

@@ -41,13 +41,16 @@ export function Card({ className, hover, children, ...p }) {
   );
 }
 
+/** Headings never end with a full stop (an ellipsis or a version number is kept). */
+export const cleanHeading = (t) => (typeof t === 'string' ? t.replace(/(?<![.\d])\.\s*$/, '') : t);
+
 export function CardHeader({ title, subtitle, icon: Icon, right }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-6 pb-2">
       <div className="flex items-start gap-3">
         {Icon && <Icon className="mt-1 h-5 w-5 text-slate-500" />}
         <div>
-          <h3 className="headline text-xl">{title}</h3>
+          <h3 className="headline text-xl">{cleanHeading(title)}</h3>
           {subtitle && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
         </div>
       </div>
@@ -60,10 +63,10 @@ export function CardHeader({ title, subtitle, icon: Icon, right }) {
 export function PageHeader({ title, tagline, links, children }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-6 pt-10 pb-8 md:pt-14 md:pb-12">
-      <h1 className="headline text-5xl md:text-[80px] md:leading-none">{title}</h1>
+      <h1 className="headline text-5xl md:text-[80px] md:leading-none">{cleanHeading(title)}</h1>
       {(tagline || links) && (
         <div className="max-w-sm text-left md:text-right">
-          {tagline && <p className="headline text-2xl leading-tight md:text-[28px]">{tagline}</p>}
+          {tagline && <p className="headline text-2xl leading-tight md:text-[28px]">{cleanHeading(tagline)}</p>}
           {links && <div className="mt-3 flex flex-col gap-1.5 text-[15px] md:items-end">{links}</div>}
         </div>
       )}
@@ -72,12 +75,13 @@ export function PageHeader({ title, tagline, links, children }) {
   );
 }
 
-/** "Bold part. Gray continuation." section title. */
+/** Two-tone section title: a bold part, then a gray continuation separated by a space. */
 export function SectionTitle({ title, sub, right, className }) {
   return (
     <div className={cx('mb-5 flex flex-wrap items-end justify-between gap-3', className)}>
       <h2 className="headline text-2xl md:text-[28px]">
-        {title} {sub && <span className="text-slate-500 dark:text-slate-400">{sub}</span>}
+        {cleanHeading(title)}
+        {sub && <span className="ml-3 text-slate-500 dark:text-slate-400">{cleanHeading(sub)}</span>}
       </h2>
       {right}
     </div>
@@ -246,7 +250,7 @@ export function Modal({ open, onClose, title, children, wide }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <h3 className="headline text-lg">{title}</h3>
+          <h3 className="headline text-lg">{cleanHeading(title)}</h3>
           <button onClick={onClose} className="rounded-full bg-slate-100 p-1.5 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
@@ -261,7 +265,7 @@ export function Empty({ icon: Icon, title, children }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
       {Icon && <Icon className="mb-5 h-12 w-12 text-slate-400" strokeWidth={1.25} />}
-      <h3 className="headline text-3xl">{title}</h3>
+      <h3 className="headline text-3xl">{cleanHeading(title)}</h3>
       <div className="mt-3 max-w-md text-[15px] text-slate-500 dark:text-slate-400">{children}</div>
     </div>
   );
@@ -379,7 +383,7 @@ export function OptionCard({ selected, onClick, title, tags, why, cost, disabled
       )}
     >
       <div className="flex w-full flex-wrap items-center gap-1.5">
-        <span className="mr-auto text-[15px] font-semibold">{title}</span>
+        <span className="mr-auto text-[15px] font-semibold">{cleanHeading(title)}</span>
         <TagBadges tags={tags} />
       </div>
       {why && <span className="text-[13px] leading-snug text-slate-600 dark:text-slate-400">{why}</span>}

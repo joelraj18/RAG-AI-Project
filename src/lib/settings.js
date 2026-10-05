@@ -11,9 +11,14 @@ export const DEFAULT_SETTINGS = {
   hfPolicy: '', // '' (HF default) | 'fastest' | 'cheapest'
   hfBillTo: '', // optional organisation to bill (PRO / Team / Enterprise)
   aiSuggestions: false, // LLM-written starter questions cost one call per document
+  // "custom" provider: any OpenAI-compatible endpoint (Ollama, LM Studio, vLLM)
   openaiBaseUrl: 'http://localhost:11434/v1',
   openaiKey: '',
   openaiModel: 'mistral:7b-instruct',
+  apiKeys: {}, // { anthropic, deepseek, openai, gemini, groq, mistral, openrouter }: memory only
+  apiModels: {}, // chosen model per key provider (saved; not secret)
+  claudeEffort: 'medium', // Claude 5.x thinking effort: low | medium | high
+  confidential: false, // block every provider that would send text off this device
   browserModel: 'onnx-community/Qwen2.5-0.5B-Instruct',
   maxTokens: 512,
   temperature: 0,
@@ -68,7 +73,7 @@ const KEY = 'rag-ai-studio.settings.v1';
 
 // API keys and tokens live ONLY in this tab's memory. They are never written to
 // localStorage, IndexedDB, cookies, exports or URLs, and disappear on reload / tab close.
-export const SECRET_KEYS = ['hfToken', 'openaiKey'];
+export const SECRET_KEYS = ['hfToken', 'openaiKey', 'apiKeys'];
 
 /** The settings object that may be written to disk: everything except secrets. */
 export function persistable(s) {
@@ -82,7 +87,10 @@ export function loadSettings() {
     const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
     // purge secrets that older versions of the app may have saved
     if (SECRET_KEYS.some((k) => k in stored)) localStorage.setItem(KEY, JSON.stringify(persistable(stored)));
-    return { ...DEFAULT_SETTINGS, ...persistable(stored) };
+    const s = { ...DEFAULT_SETTINGS, ...persistable(stored) };
+    // older versions called the custom OpenAI-compatible endpoint "openai"
+    if (s.provider === 'openai' && !('apiModels' in stored)) s.provider = 'custom';
+    return s;
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -92,11 +100,11 @@ export function saveSettings(s) {
   try {
     localStorage.setItem(KEY, JSON.stringify(persistable(s)));
   } catch {
-    /* storage unavailable (private mode) – settings stay in memory */
+    /* storage unavailable (private mode), settings stay in memory */
   }
 }
 
-// Evaluation Lab configurations – the notebook's C1–C5 and vanilla, plus hybrid/rerank variants.
+// Evaluation Lab configurations: the notebook's C1–C5 and vanilla, plus hybrid/rerank variants.
 export const BENCH_CONFIGS = [
   { id: 'V', name: 'Vanilla LLM (no retrieval)', cfg: { vanilla: true, maxTokens: 256 }, needsLLM: true },
   { id: 'C1', name: 'Similarity k=3 (notebook baseline)', cfg: { mode: 'semantic', k: 3, temperature: 0, rerank: false, neighbors: false } },

@@ -20,12 +20,21 @@ import { embedQuery } from './workers.js';
 import { cosine } from './quant.js';
 import { vectorsReady } from './kb.js';
 import { uid } from './text.js';
+import { PROVIDERS, keyModelOf, dataClass } from './providers.js';
 
 // One question -> (condense) -> (HyDE) -> retrieve -> (rerank) -> generate -> evaluate.
 // Every step is timed; `onUpdate` receives the growing record so the UI streams live.
 
 export const modelName = (s) =>
-  s.provider === 'hf' ? s.hfModel : s.provider === 'openai' ? s.openaiModel : s.provider === 'browser' ? s.browserModel : 'extractive';
+  s.provider === 'hf'
+    ? s.hfModel
+    : s.provider === 'custom'
+      ? s.openaiModel
+      : s.provider === 'browser'
+        ? s.browserModel
+        : PROVIDERS[s.provider]?.group === 'key'
+          ? keyModelOf(s)
+          : 'extractive';
 
 export function systemPrompt(settings, docNames) {
   const p = preset(settings.preset);
@@ -132,7 +141,10 @@ export async function suggestQuestions(settings, doc, kb, useLLM = false) {
  * cfg overrides settings for a single run (Evaluation Lab):
  *   { mode, k, temperature, maxTokens, vanilla, judgeMode, corrective, rerank, retrievalOnly }
  */
-export async function runQuestion({ question, sets, settings, history = [], cfg = {}, onUpdate, signal }) {
+export async function runQuestion({ question, sets, settings: base, history = [], cfg = {}, onUpdate, signal }) {
+  // counts every call that leaves this device for this question (shown as "Data sent")
+  const meter = { host: null, calls: 0, promptTokens: 0 };
+  const settings = { ...base, _meter: meter };
   const c = {
     mode: settings.retrievalMode,
     k: settings.k,
@@ -163,6 +175,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
     docIds: sets.map((s) => s.doc.id),
     config: { mode: c.mode, k: c.k, rerank: c.rerank, neighbors: c.neighbors, temperature: c.temperature, maxTokens: c.maxTokens, judgeMode: judgeOn ? c.judgeMode : 'off' },
     phase: 'retrieving',
+    dataSent: { cloud: dataClass(base) === 'cloud', ...meter },
     answer: '',
     sources: [],
     timings: {},
@@ -232,7 +245,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
         const [qa, an] = await Promise.all([embedQuery(embedSet.doc.embedModel, question), embedQuery(embedSet.doc.embedModel, rec.answer.slice(0, 1500))]);
         heuristic.answerSimilarity = cosine(qa, an);
       } catch {
-        /* embeddings unavailable – skip */
+        /* embeddings unavailable, skip */
       }
     }
     emit();
@@ -291,6 +304,7 @@ export async function runQuestion({ question, sets, settings, history = [], cfg 
     if (e.title) rec.errorInfo = { title: e.title, hint: e.hint, status: e.status, billing: e.billing };
   }
   rec.timings.total = performance.now() - tStart;
+  rec.dataSent = { cloud: dataClass(base) === 'cloud', ...meter };
   emit();
   return rec;
 }
