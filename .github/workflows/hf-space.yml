@@ -1,10 +1,10 @@
-name: Sync MediRAG Studio to a Hugging Face Space
+name: Sync RAG AI Studio to a Hugging Face Space
 
 # Optional free hosting on Hugging Face Spaces (static SDK).
-# Setup once: repo Settings → Secrets and variables → Actions
+# One-time setup: repo Settings → Secrets and variables → Actions
 #   - secret   HF_TOKEN  = a Hugging Face token with "write" access
-#   - variable HF_SPACE  = <hf-username>/medirag-studio
-# The job is skipped until both are set.
+#   - variable HF_SPACE  = <hf-username>/rag-ai-studio
+# The job is skipped until HF_SPACE is set.
 
 on:
   push:
@@ -15,16 +15,12 @@ jobs:
   sync:
     if: vars.HF_SPACE != ''
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: medirag
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: medirag/package-lock.json
       - run: npm ci --ignore-scripts
       - run: npm run build
       - uses: actions/setup-python@v5

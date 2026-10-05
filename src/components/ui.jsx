@@ -1,253 +1,265 @@
-// Small, shared presentational building blocks.
+import { useEffect } from 'react';
+import { X } from 'lucide-react';
 
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Info, X } from 'lucide-react';
+export const cx = (...c) => c.filter(Boolean).join(' ');
 
-/**
- * Renders assistant/insight text safely: **bold**, line breaks and "- " bullets.
- * Never uses innerHTML, so values coming from a CSV cannot inject markup.
- */
-export function RichText({ text, className }) {
-    const renderInline = (line, key) =>
-        line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-            part.startsWith('**') && part.endsWith('**') ? (
-                <strong key={`${key}-${i}`}>{part.slice(2, -2)}</strong>
-            ) : (
-                <React.Fragment key={`${key}-${i}`}>{part}</React.Fragment>
-            ),
-        );
-
-    const blocks = [];
-    let bullets = [];
-    const flush = () => {
-        if (bullets.length) {
-            blocks.push(
-                <ul key={`ul-${blocks.length}`} className="rich-list">
-                    {bullets}
-                </ul>,
-            );
-            bullets = [];
-        }
-    };
-
-    text.split('\n').forEach((line, i) => {
-        if (line.startsWith('- ')) {
-            bullets.push(<li key={i}>{renderInline(line.slice(2), i)}</li>);
-        } else {
-            flush();
-            if (line.trim()) blocks.push(<p key={i}>{renderInline(line, i)}</p>);
-        }
-    });
-    flush();
-
-    return <div className={className}>{blocks}</div>;
+export function Button({ variant = 'primary', size = 'md', className, icon: Icon, children, ...p }) {
+  const v = {
+    primary: 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm disabled:bg-slate-300 dark:disabled:bg-slate-700',
+    secondary:
+      'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-800',
+    ghost: 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+    danger: 'bg-rose-600 text-white hover:bg-rose-700',
+  }[variant];
+  const s = { sm: 'h-8 px-2.5 text-xs gap-1.5', md: 'h-9 px-3.5 text-sm gap-2', lg: 'h-11 px-5 text-sm gap-2' }[size];
+  return (
+    <button
+      className={cx('inline-flex items-center justify-center rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60', v, s, className)}
+      {...p}
+    >
+      {Icon && <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+      {children}
+    </button>
+  );
 }
 
-/** An ⓘ button that reveals a short explanation on hover, focus or tap. */
-export function InfoTip({ text, label = 'More information', align: preferred, side = 'top' }) {
-    const id = useId();
-    const [open, setOpen] = useState(false);
-    const [align, setAlign] = useState(preferred || 'center');
-    const ref = useRef(null);
-
-    // Anchor the bubble towards the middle of the screen so it never spills off an edge.
-    const place = () => {
-        if (preferred || !ref.current) return;
-        const { left, right } = ref.current.getBoundingClientRect();
-        const width = window.innerWidth;
-        setAlign(left < 160 ? 'start' : width - right < 160 ? 'end' : 'center');
-    };
-
-    useEffect(() => {
-        if (!open) return undefined;
-        const close = (e) => {
-            if (!ref.current?.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener('pointerdown', close);
-        return () => document.removeEventListener('pointerdown', close);
-    }, [open]);
-
-    return (
-        <span className={`infotip infotip--${align} infotip--${side} ${open ? 'is-open' : ''}`} ref={ref} onPointerEnter={place} onFocus={place}>
-            <button
-                type="button"
-                className="infotip__btn"
-                aria-label={label}
-                aria-describedby={id}
-                aria-expanded={open}
-                onClick={() => setOpen((o) => !o)}
-                onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-            >
-                <Info aria-hidden="true" />
-            </button>
-            <span role="tooltip" id={id} className="infotip__bubble">
-                {text}
-            </span>
-        </span>
-    );
+export function Card({ className, children, ...p }) {
+  return (
+    <div className={cx('rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900', className)} {...p}>
+      {children}
+    </div>
+  );
 }
 
-const TOAST_ICONS = { success: CheckCircle2, error: AlertTriangle, info: Info };
-
-export function Toast({ message, type = 'info', onClose }) {
-    if (!message) return null;
-    const Icon = TOAST_ICONS[type] || Info;
-    return (
-        <div className={`toast toast--${type}`} role={type === 'error' ? 'alert' : 'status'}>
-            <Icon className="toast__icon" aria-hidden="true" />
-            <p>{message}</p>
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="Dismiss notification">
-                <X aria-hidden="true" />
-            </button>
+export function CardHeader({ title, subtitle, icon: Icon, right }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+      <div className="flex items-start gap-3">
+        {Icon && (
+          <div className="mt-0.5 rounded-lg bg-brand-50 p-2 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+            <Icon className="h-4 w-4" />
+          </div>
+        )}
+        <div>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+          {subtitle && <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
         </div>
-    );
+      </div>
+      {right}
+    </div>
+  );
 }
 
-/** Apple-style two-tone heading: "All models. Take your pick." */
-export function SectionTitle({ strong, soft, info, as: Tag = 'h2' }) {
-    return (
-        <Tag className="section-title">
-            <span>{strong}</span> {soft && <span className="section-title__soft">{soft}</span>}
-            {info && <InfoTip text={info} />}
-        </Tag>
-    );
+const BADGE = {
+  slate: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  green: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300',
+  amber: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  red: 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  brand: 'bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300',
+  violet: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  blue: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+};
+
+export function Badge({ color = 'slate', className, children, ...p }) {
+  return (
+    <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', BADGE[color], className)} {...p}>
+      {children}
+    </span>
+  );
 }
 
-export function Card({ title, info, eyebrow, actions, children, className = '' }) {
-    return (
-        <section className={`card ${className}`}>
-            {(title || eyebrow || actions) && (
-                <header className="card__header">
-                    <div>
-                        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-                        {title && (
-                            <h3 className="card__title">
-                                {title}
-                                {info && <InfoTip text={info} />}
-                            </h3>
-                        )}
-                    </div>
-                    {actions}
-                </header>
-            )}
-            {children}
-        </section>
-    );
+export function Stat({ label, value, hint, icon: Icon }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-semibold text-slate-900 tabular-nums dark:text-slate-100">{value}</div>
+      {hint && <div className="text-xs text-slate-500 dark:text-slate-400">{hint}</div>}
+    </div>
+  );
 }
 
-export function StatTile({ label, value, hint, info, tone }) {
-    return (
-        <div className={`stat-tile ${tone ? `stat-tile--${tone}` : ''}`}>
-            <p className="stat-tile__label">
-                {label}
-                {info && <InfoTip text={info} />}
-            </p>
-            <p className="stat-tile__value">{value}</p>
-            {hint && <p className="stat-tile__hint">{hint}</p>}
+export function Progress({ value, className, color = 'bg-brand-500' }) {
+  return (
+    <div className={cx('h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800', className)}>
+      <div className={cx('h-full rounded-full transition-all', color)} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+    </div>
+  );
+}
+
+export function Toggle({ checked, onChange, label, hint }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cx('relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition', checked ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-700')}
+      >
+        <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition', checked ? 'left-4.5' : 'left-0.5')} />
+      </button>
+      <span>
+        <span className="text-sm font-medium">{label}</span>
+        {hint && <span className="block text-xs text-slate-500 dark:text-slate-400">{hint}</span>}
+      </span>
+    </label>
+  );
+}
+
+export function Field({ label, hint, children }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{label}</span>
+      <div className="mt-1">{children}</div>
+      {hint && <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{hint}</span>}
+    </label>
+  );
+}
+
+export const inputCls =
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950';
+
+/** 1–5 score ring. */
+export function ScoreRing({ score, max = 5, label, size = 64, sub }) {
+  const pct = score == null ? 0 : score / max;
+  const color = score == null ? '#94a3b8' : pct >= 0.9 ? '#10b981' : pct >= 0.7 ? '#14b8a6' : pct >= 0.5 ? '#f59e0b' : '#f43f5e';
+  const r = size / 2 - 5;
+  const C = 2 * Math.PI * r;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} strokeWidth="6" className="fill-none stroke-slate-100 dark:stroke-slate-800" />
+        <circle cx={size / 2} cy={size / 2} r={r} strokeWidth="6" fill="none" stroke={color} strokeLinecap="round" strokeDasharray={`${C * pct} ${C}`} className="transition-all duration-700" />
+        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" className="rotate-90 fill-slate-900 text-sm font-semibold dark:fill-slate-100" style={{ transformOrigin: 'center' }}>
+          {score == null ? '–' : max === 5 ? score.toFixed(score % 1 ? 1 : 0) : `${Math.round(score)}%`}
+        </text>
+      </svg>
+      <div className="text-center text-xs font-medium text-slate-600 dark:text-slate-300">{label}</div>
+      {sub && <div className="-mt-1 text-center text-[11px] text-slate-400">{sub}</div>}
+    </div>
+  );
+}
+
+export function Modal({ open, onClose, title, children, wide }) {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className={cx('flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900', wide ? 'max-w-5xl' : 'max-w-xl')}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800">
+          <h3 className="font-semibold">{title}</h3>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
         </div>
-    );
+        <div className="scroll-thin overflow-auto">{children}</div>
+      </div>
+    </div>
+  );
 }
 
-export function EmptyState({ icon: Icon, title, children }) {
-    return (
-        <div className="empty-state">
-            {Icon && <Icon className="empty-state__icon" aria-hidden="true" />}
-            <p className="empty-state__title">{title}</p>
-            {children && <div className="empty-state__body">{children}</div>}
+export function Empty({ icon: Icon, title, children }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      {Icon && (
+        <div className="mb-4 rounded-2xl bg-brand-50 p-4 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
+          <Icon className="h-8 w-8" />
         </div>
-    );
+      )}
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+      <div className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">{children}</div>
+    </div>
+  );
 }
 
-export function Callout({ tone = 'info', title, children }) {
-    const Icon = tone === 'warning' ? AlertTriangle : tone === 'success' ? CheckCircle2 : Info;
-    return (
-        <div className={`callout callout--${tone}`}>
-            <Icon className="callout__icon" aria-hidden="true" />
-            <div>
-                {title && <p className="callout__title">{title}</p>}
-                <div className="callout__body">{children}</div>
-            </div>
-        </div>
-    );
+export function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Horizontal, scroll-snapping row with previous/next buttons (like the Apple Store shelves). */
-export function Carousel({ children, label }) {
-    const track = useRef(null);
-    const [edges, setEdges] = useState({ start: true, end: true });
+// ---------- trade-off guidance ----------
 
-    const update = useCallback(() => {
-        const el = track.current;
-        if (!el) return;
-        setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
-    }, []);
+export const TAGS = {
+  recommended: { label: 'Recommended', icon: '⭐', color: 'brand' },
+  fastest: { label: 'Fastest', icon: '⚡', color: 'blue' },
+  lightest: { label: 'Lightest', icon: '💾', color: 'slate' },
+  quality: { label: 'Best quality', icon: '🎯', color: 'violet' },
+  private: { label: 'Private', icon: '🔒', color: 'green' },
+};
 
-    useEffect(() => {
-        update();
-        window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
-    }, [update, children]);
-
-    const scroll = (dir) => track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.8, behavior: 'smooth' });
-
-    return (
-        <div className="carousel">
-            <div className="carousel__track" ref={track} onScroll={update} role="list" aria-label={label}>
-                {React.Children.map(children, (child) => (
-                    <div className="carousel__item" role="listitem">
-                        {child}
-                    </div>
-                ))}
-            </div>
-            {!edges.start && (
-                <button type="button" className="carousel__nav carousel__nav--prev" onClick={() => scroll(-1)} aria-label="Scroll left">
-                    <ChevronLeft aria-hidden="true" />
-                </button>
-            )}
-            {!edges.end && (
-                <button type="button" className="carousel__nav carousel__nav--next" onClick={() => scroll(1)} aria-label="Scroll right">
-                    <ChevronRight aria-hidden="true" />
-                </button>
-            )}
-        </div>
-    );
+export function TagBadges({ tags = [] }) {
+  return tags.map((t) => (
+    <Badge key={t} color={TAGS[t]?.color}>
+      {TAGS[t]?.icon} {TAGS[t]?.label}
+    </Badge>
+  ));
 }
 
-export function DataTable({ columns, rows, rowKey }) {
-    return (
-        <div className="table-wrap">
-            <table className="table">
-                <thead>
-                    <tr>
-                        {columns.map((c) => (
-                            <th key={c.key} scope="col" className={c.numeric ? 'is-num' : ''}>
-                                <span className="th-inner">
-                                    {c.label}
-                                    {c.info && <InfoTip text={c.info} side="bottom" />}
-                                </span>
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((row) => (
-                        <tr key={rowKey(row)}>
-                            {columns.map((c, i) => {
-                                const content = c.render ? c.render(row) : row[c.key];
-                                return i === 0 ? (
-                                    <th key={c.key} scope="row">
-                                        {content}
-                                    </th>
-                                ) : (
-                                    <td key={c.key} className={c.numeric ? 'is-num' : ''}>
-                                        {content}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
+/** Selectable card that explains what an option costs and why to pick it. */
+export function OptionCard({ selected, onClick, title, tags, why, cost, disabled, children }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cx(
+        'flex h-full w-full flex-col items-start gap-1 rounded-xl border p-3 text-left text-sm transition disabled:opacity-50',
+        selected ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500 dark:bg-brand-900/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700'
+      )}
+    >
+      <div className="flex w-full flex-wrap items-center gap-1.5">
+        <span className="mr-auto font-semibold">{title}</span>
+        <TagBadges tags={tags} />
+      </div>
+      {why && <span className="text-xs text-slate-600 dark:text-slate-400">{why}</span>}
+      {cost && <span className="text-[11px] font-medium text-slate-400">{cost}</span>}
+      {children}
+    </button>
+  );
+}
+
+export function Tabs({ tabs, value, onChange }) {
+  return (
+    <div className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-800">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={cx(
+            '-mb-px border-b-2 px-3 py-1.5 text-xs font-semibold transition',
+            value === t.id ? 'border-brand-600 text-brand-700 dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function Sparkline({ values, width = 120, height = 28, max }) {
+  const v = values.filter((x) => x != null);
+  if (v.length < 2) return <span className="text-xs text-slate-400">–</span>;
+  const top = max ?? Math.max(...v);
+  const pts = v.map((x, i) => `${(i / (v.length - 1)) * width},${height - (x / (top || 1)) * (height - 4) - 2}`).join(' ');
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <polyline points={pts} fill="none" strokeWidth="2" className="stroke-brand-500" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
 }
