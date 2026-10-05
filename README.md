@@ -1,3 +1,15 @@
+# RAG AI Project — MediRAG Studio
+
+**[`medirag/`](medirag/)**: a React web app for chatting with a medical manual using retrieval-augmented generation (RAG).
+Answers cite pages, and each one shows its processing time, groundedness and relevance evaluation. It runs fully in the browser
+and is deployed for free to GitHub Pages (`.github/workflows/deploy.yml`) and, optionally, a Hugging Face Space
+(`.github/workflows/hf-space.yml`). See [medirag/README.md](medirag/README.md) for features, setup and deployment.
+
+> The repository previously contained only the DataMind app (below). Its source is still at the repository root, but the
+> Pages workflow now builds and deploys MediRAG Studio.
+
+---
+
 # DataMind — AI Data Playground
 
 DataMind is a browser-based Exploratory Data Analysis (EDA) tool built with React that allows users to upload CSV datasets and instantly generate statistical insights, visualizations, and analytical summaries — without any backend server.
