@@ -8,17 +8,32 @@ server and no GPU bill, and your files never leave your machine.
 It started as the web version of a Colab project ("Medical Assistant: RAG-based Clinical Decision Support using The Merck
 Manual") and has been generalised to any document. "Medical" is now one of six document-type presets.
 
-| Chat with cited answers | Per-answer evaluation |
+| Documents | Chat |
 |---|---|
-| ![chat](docs/chat.png) | ![evaluation](docs/evaluation-tab.png) |
-| **Retrieval trace (BM25 / semantic / fused / reranked)** | **Citation → real PDF page** |
-| ![retrieval](docs/retrieval-trace.png) | ![viewer](docs/page-viewer.png) |
-| **Documents with stage timings** | **Settings with trade-off guidance** |
-| ![documents](docs/documents.png) | ![settings](docs/settings.png) |
+| ![documents](docs/documents.png) | ![chat](docs/chat-home.png) |
+| **Cited answer with timing & evaluation** | **Evaluation tab** |
+| ![answer](docs/chat.png) | ![evaluation](docs/evaluation-tab.png) |
+| **Library shelves** | **Retrieval trace** |
+| ![library](docs/library.png) | ![retrieval](docs/retrieval-trace.png) |
+| **Settings with trade-off guidance** | **Learn RAG (dark mode)** |
+| ![settings](docs/settings.png) | ![learn](docs/learn-dark.png) |
 
 ![Evaluation Lab](docs/evaluation-lab.png)
 
+<img src="docs/mobile.png" alt="Mobile layout" width="280" />
+
 <sub>Screenshots use the built-in demo documents and a local test model.</sub>
+
+### Design
+
+The interface follows a clean, store-like design language:
+- **Layout:** a light-gray canvas with white rounded cards and soft shadows, under a translucent top navigation bar. A one-line
+  context ribbon below the bar shows the most useful next step.
+- **Pages:** each page has a large title with a tagline on the right. Section titles are two-tone ("**Your library.** 3
+  documents · 92 KB stored"), and content sits on horizontal card shelves with arrow buttons.
+- **Controls:** pill buttons, segmented tabs, iOS-style switches, and the system font (San Francisco on Apple devices, Segoe
+  UI or Roboto elsewhere). Full dark mode, and a mobile layout with a menu sheet and a sessions drawer.
+- **No third-party logos or font files are bundled.** The app keeps its own name and icon.
 
 ## What kind of AI system is this?
 
@@ -169,7 +184,12 @@ src/
 | Chunk quality | No section context; TOC pages and duplicates indexed | Section-aware chunks, contextual headers for embeddings, TOC/duplicate filtering |
 | Judge cost | 2 LLM calls per answer | 1 combined call by default (strict 2-call mode optional) |
 | Scope | Medical-only prompts and demo | Any document; 6 presets; generic "Guide to RAG" demo |
-| Robustness | No lint, no error boundary | ESLint in CI, error boundary per view, 23 unit tests |
+| Robustness | No lint, no error boundary | ESLint in CI, error boundary per view, 34 unit tests |
+| Streaming answers | Sessions reloaded from storage on every background refresh (e.g. when embedding finished), which could rewind an answer still streaming | Sessions reload only when the active collection changes |
+| Evaluation Lab | Typed questions were wiped by background refreshes; empty question box for the General preset | Kept while typing; pre-filled from each document's suggested questions |
+| Collections | Could be created but never renamed or deleted | Rename, delete and add documents from the top-bar collection menu |
+| Dialogs | Native `prompt` / `confirm` / `alert` (blocked in some embedded hosts, inaccessible) | In-app dialogs and toasts; modals have dialog roles and manage focus |
+| Citations | Long multi-document “Sources: […]” lists shown as raw text | Parsed into clickable chips (bracket limit raised) |
 
 ## Run locally
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle2, XCircle, FileText, Scissors, Layers, Cpu, Search, ArrowDownUp, Bot, Scale, HelpCircle, Lightbulb } from 'lucide-react';
-import { Card, CardHeader, Badge, cx, TagBadges } from '../components/ui.jsx';
+import { Card, CardHeader, Badge, cx, TagBadges, PageHeader } from '../components/ui.jsx';
 import { useStore } from '../state/store.jsx';
 import { docBytes } from '../lib/kb.js';
 import { fmtBytes, fmtMs, fmtNum } from '../lib/text.js';
@@ -51,11 +51,8 @@ export default function LearnView() {
 
   return (
     <div className="scroll-thin h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Learn RAG</h1>
-          <p className="text-sm text-slate-500">How retrieval-augmented generation works, step by step — with live numbers from your active collection.</p>
-        </div>
+      <div className="mx-auto max-w-[1100px] space-y-8 px-4 pb-16 sm:px-6">
+        <PageHeader title="Learn RAG" tagline="How retrieval-augmented generation works, step by step." links={<span className="text-sm text-slate-500">With live numbers from your active collection.</span>} />
 
         <Card>
           <CardHeader icon={Lightbulb} title="The pipeline" subtitle="Click a step." />

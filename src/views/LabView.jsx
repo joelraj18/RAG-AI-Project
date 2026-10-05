@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlaskConical, Play, Square, Download, Trash2, History, BookOpenCheck, BarChart3, Grid3x3, Save, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Button, Card, CardHeader, Badge, Progress, Empty, Modal, cx, download, inputCls, Toggle } from '../components/ui.jsx';
+import { Button, Card, CardHeader, Badge, Progress, Empty, Modal, cx, download, inputCls, Toggle, PageHeader, LinkButton, useDialog } from '../components/ui.jsx';
 import EvalPanel from '../components/EvalPanel.jsx';
 import Markdown from '../components/Markdown.jsx';
 import { runQuestion, slimRecord, hydrateRecord } from '../lib/pipeline.js';
@@ -87,10 +87,11 @@ function toCSV(run) {
   return [head, ...rows].map((row) => row.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
-const cellColor = (s) => (s == null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : s >= 4.5 ? 'bg-emerald-500 text-white' : s >= 3.5 ? 'bg-teal-400 text-white' : s >= 2.5 ? 'bg-amber-400 text-white' : 'bg-rose-500 text-white');
+const cellColor = (s) => (s == null ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : s >= 4.5 ? 'bg-emerald-500 text-white' : s >= 3.5 ? 'bg-brand-500 text-white' : s >= 2.5 ? 'bg-amber-400 text-white' : 'bg-rose-500 text-white');
 
 export default function LabView() {
-  const { settings, activeCollection, activeDocs, sets, kbLoading, kbOf, effectivePlan } = useStore();
+  const { settings, activeCollection, activeDocs, sets, kbLoading, kbOf, effectivePlan, setView } = useStore();
+  const dialog = useDialog();
   const p = preset(settings.preset);
   const [questions, setQuestions] = useState('');
   const [selected, setSelected] = useState(['V', 'C1', 'C2', 'C3', 'C4', 'C5', 'H4']);
@@ -107,8 +108,23 @@ export default function LabView() {
   }, []);
   useEffect(() => {
     if (!activeCollection) return;
-    db.getKV(`questions:${activeCollection.id}`).then((q) => setQuestions(q || (p.sampleQuestions || []).join('\n')));
-  }, [activeCollection, p.sampleQuestions]);
+    (async () => {
+      // saved set → preset samples → the suggested questions already generated for these documents
+      let q = await db.getKV(`questions:${activeCollection.id}`);
+      if (!q && p.sampleQuestions) q = p.sampleQuestions.join('\n');
+      if (!q) {
+        const lines = [];
+        for (const id of activeCollection.docIds.slice(0, 3)) {
+          const r = (await db.getKV(`suggest:${id}:llm`)) || (await db.getKV(`suggest:${id}:x`));
+          lines.push(...(r?.questions || []).slice(0, 3));
+        }
+        q = lines.join('\n');
+      }
+      setQuestions(q || '');
+    })();
+    // keyed on the id so background refreshes (e.g. embedding finished) never wipe what you typed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCollection?.id, p.sampleQuestions]);
 
   const summary = useMemo(() => (run ? summarize(run) : []), [run]);
   const hasLabels = run?.results.some((r) => r.retrieval);
@@ -126,7 +142,14 @@ export default function LabView() {
     const qs = parseQuestions(questions);
     const configs = runnable;
     if (!qs.length || !configs.length || !sets.length) return;
-    if (estCalls > callLimit && !confirm(`This experiment will make about ${estCalls} LLM calls${hfFree ? ', which can use a large part of the free monthly Hugging Face credits' : ''}.\n\nTip: use “Retrieval only” to tune search for free, select fewer configurations, or set the judge to Off.\n\nContinue?`)) return;
+    if (
+      estCalls > callLimit &&
+      !(await dialog.confirm(
+        `This experiment will make about ${estCalls} LLM calls${hfFree ? ', which can use a large part of the free monthly Hugging Face credits' : ''}. Tip: use “Retrieval only” to tune search for free, select fewer configurations, or turn the judge off.`,
+        { title: 'Large experiment', confirmLabel: 'Run anyway' }
+      ))
+    )
+      return;
     db.putKV(`questions:${activeCollection.id}`, questions);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -184,11 +207,17 @@ export default function LabView() {
 
   return (
     <div className="scroll-thin h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Evaluation Lab</h1>
-          <p className="text-sm text-slate-500">Compare retrieval and generation settings on your own questions: vanilla vs. RAG configurations, judged quality, retrieval accuracy and time per stage.</p>
-        </div>
+      <div className="mx-auto max-w-[1100px] space-y-8 px-4 pb-16 sm:px-6">
+        <PageHeader
+          title="Evaluation Lab"
+          tagline="The best way to choose your settings."
+          links={
+            <>
+              <span className="text-sm text-slate-500">Vanilla vs RAG · judged quality · retrieval accuracy · time per stage</span>
+              <LinkButton onClick={() => setView('learn')}>Reading the metrics ↗</LinkButton>
+            </>
+          }
+        />
 
         <Card>
           <CardHeader icon={FlaskConical} title="Experiment setup" subtitle={`${activeCollection.name} (${activeDocs.length} docs) · ${providerLabel(settings)}`} />
@@ -315,12 +344,12 @@ export default function LabView() {
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                       <XAxis dataKey="name" fontSize={12} />
                       <YAxis domain={[0, 5]} fontSize={12} />
-                      <Tooltip />
+                      <Tooltip cursor={{ fill: 'rgba(120,120,128,0.08)' }} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '2px 4px 16px rgba(0,0,0,0.12)' }} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="Groundedness" fill="#0d9488" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Relevance" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Claim support (×5)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                      {hasLabels && <Bar dataKey="Hit@k (×5)" fill="#ec4899" radius={[4, 4, 0, 0]} />}
+                      <Bar dataKey="Groundedness" fill="#0071e3" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Relevance" fill="#5e5ce6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Claim support (×5)" fill="#ff9f0a" radius={[4, 4, 0, 0]} />
+                      {hasLabels && <Bar dataKey="Hit@k (×5)" fill="#ff375f" radius={[4, 4, 0, 0]} />}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -331,11 +360,11 @@ export default function LabView() {
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                       <XAxis dataKey="name" fontSize={12} />
                       <YAxis fontSize={12} />
-                      <Tooltip />
+                      <Tooltip cursor={{ fill: 'rgba(120,120,128,0.08)' }} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '2px 4px 16px rgba(0,0,0,0.12)' }} />
                       <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="Retrieval" stackId="t" fill="#8b5cf6" />
-                      <Bar dataKey="Generation" stackId="t" fill="#14b8a6" />
-                      <Bar dataKey="Evaluation" stackId="t" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Retrieval" stackId="t" fill="#5e5ce6" />
+                      <Bar dataKey="Generation" stackId="t" fill="#0071e3" />
+                      <Bar dataKey="Evaluation" stackId="t" fill="#ff9f0a" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

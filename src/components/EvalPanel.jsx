@@ -53,9 +53,9 @@ export function TimingWaterfall({ timings }) {
 
 function Section({ icon: Icon, title, children, right }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-3.5 dark:border-slate-800">
-      <div className="mb-2.5 flex items-center justify-between gap-2">
-        <h4 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+    <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/50">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-sm font-semibold text-ink dark:text-slate-100">
           <Icon className="h-3.5 w-3.5" />
           {title}
         </h4>
@@ -142,7 +142,7 @@ function SourceCards({ rec, onOpen, compact }) {
   return (
     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
       {list.map((s) => (
-        <button key={s.key} onClick={() => onOpen(s.docId, s.page, [s.key])} className="group rounded-lg border border-slate-200 p-2.5 text-left transition hover:border-brand-400 hover:shadow-sm dark:border-slate-800">
+        <button key={s.key} onClick={() => onOpen(s.docId, s.page, [s.key])} className="group rounded-2xl bg-slate-50 p-3.5 text-left transition hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800">
           <div className="mb-1 flex flex-wrap items-center gap-1">
             <Badge color={s.neighbor ? 'slate' : 'brand'}>
               {s.neighbor ? `+ neighbour of #${s.neighborOf}` : `#${s.rank}`} · {sourceLabel(s)}
@@ -236,14 +236,14 @@ function PromptTab({ rec }) {
         </p>
       </Section>
       {messages.map((m, i) => (
-        <div key={i} className="rounded-lg border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500 uppercase dark:border-slate-800">
+        <div key={i} className="rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+          <div className="flex items-center justify-between px-4 pt-2.5 text-[11px] font-semibold text-slate-500 uppercase">
             {m.role}
             <button className="flex items-center gap-1 normal-case" onClick={() => navigator.clipboard?.writeText(m.content)}>
               <Copy className="h-3 w-3" /> copy
             </button>
           </div>
-          <pre className="scroll-thin max-h-72 overflow-auto p-3 text-xs whitespace-pre-wrap">{m.content}</pre>
+          <pre className="scroll-thin max-h-72 overflow-auto px-4 pt-1 pb-3 font-mono text-xs whitespace-pre-wrap">{m.content}</pre>
         </div>
       ))}
     </div>
@@ -341,7 +341,7 @@ export default function EvalPanel({ rec }) {
   const [tab, setTab] = useState('overview');
   const onOpen = (docId, page, keys) => docId && openPage(docId, page, keys);
   return (
-    <div className="mt-3">
+    <div className="mt-5">
       <Tabs
         value={tab}
         onChange={setTab}
@@ -353,7 +353,7 @@ export default function EvalPanel({ rec }) {
           { id: 'evaluation', label: 'Evaluation' },
         ]}
       />
-      <div className="pt-3">
+      <div className="pt-4">
         {tab === 'overview' && <Overview rec={rec} onOpen={onOpen} />}
         {tab === 'retrieval' && <RetrievalTab rec={rec} onOpen={onOpen} />}
         {tab === 'prompt' && <PromptTab rec={rec} />}

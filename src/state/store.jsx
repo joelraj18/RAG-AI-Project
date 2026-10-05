@@ -152,7 +152,8 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     if (!activeCollection) return setSessions([]);
-    db.listSessions(activeCollection.id).then((list) => {
+    const collectionId = activeCollection.id;
+    db.listSessions(collectionId).then((list) => {
       if (cancelled) return;
       setSessions(list);
       setActiveSessionId((cur) => (list.some((s) => s.id === cur) ? cur : list[0]?.id || null));
@@ -160,7 +161,10 @@ export function StoreProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [activeCollection]);
+    // keyed on the id: refresh() creates new collection objects (e.g. when embedding finishes),
+    // which must not reload sessions and overwrite an answer that is still streaming
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCollection?.id]);
 
   const newSession = useCallback(() => {
     if (!activeCollection) return null;

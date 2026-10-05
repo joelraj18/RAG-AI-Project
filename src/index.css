@@ -2,18 +2,47 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Design language inspired by Apple's online store: light-gray canvas, white rounded cards
+ * with soft shadows, a translucent top bar, pill buttons, blue links and two-tone headlines.
+ * Uses the platform system font (San Francisco on Apple devices, Segoe UI / Roboto elsewhere);
+ * no third-party font files or logos are bundled.
+ */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-200: #99f6e4;
-  --color-brand-300: #5eead4;
-  --color-brand-400: #2dd4bf;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
-  --color-brand-900: #134e4a;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, Inter, Arial, sans-serif;
+
+  /* accent blue */
+  --color-brand-50: #f0f6ff;
+  --color-brand-100: #dcebff;
+  --color-brand-200: #b6d6ff;
+  --color-brand-300: #7db7ff;
+  --color-brand-400: #2997ff;
+  --color-brand-500: #0a84ff;
+  --color-brand-600: #0071e3;
+  --color-brand-700: #0066cc;
+  --color-brand-800: #0058b0;
+  --color-brand-900: #00315f;
+
+  /* neutral grays (replace Tailwind's bluish slate) */
+  --color-slate-50: #f5f5f7;
+  --color-slate-100: #e8e8ed;
+  --color-slate-200: #d2d2d7;
+  --color-slate-300: #c7c7cc;
+  --color-slate-400: #86868b;
+  --color-slate-500: #6e6e73;
+  --color-slate-600: #515154;
+  --color-slate-700: #3a3a3c;
+  --color-slate-800: #2c2c2e;
+  --color-slate-900: #1c1c1e;
+  --color-slate-950: #000000;
+
+  --color-ink: #1d1d1f;
+  --color-eyebrow: #b64400;
+  --color-eyebrow-dark: #ff9f45;
+
+  --shadow-card: 2px 4px 12px rgb(0 0 0 / 0.08);
+  --shadow-card-hover: 2px 4px 16px rgb(0 0 0 / 0.16);
+  --radius-card: 18px;
 }
 
 html,
@@ -23,7 +52,38 @@ body,
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  @apply bg-slate-50 text-ink antialiased dark:bg-slate-950 dark:text-slate-50;
+  font-feature-settings: 'kern';
+  letter-spacing: -0.01em;
+}
+
+/* component classes live in a layer so utility classes (e.g. text-white) can override them */
+@layer components {
+/* large headline style: tight tracking, heavy weight */
+.headline {
+  @apply font-semibold tracking-[-0.025em] text-ink dark:text-slate-50;
+}
+
+.eyebrow {
+  @apply text-xs font-semibold tracking-wide text-eyebrow uppercase dark:text-eyebrow-dark;
+}
+
+/* translucent "frosted" bars */
+.glass {
+  @apply bg-white/72 backdrop-blur-xl backdrop-saturate-[1.8] dark:bg-slate-900/72;
+}
+
+/* horizontal card shelves */
+.shelf {
+  @apply flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-6;
+  scrollbar-width: none;
+}
+.shelf::-webkit-scrollbar {
+  display: none;
+}
+.shelf > * {
+  @apply shrink-0 snap-start;
+}
 }
 
 .scroll-thin::-webkit-scrollbar {
@@ -38,7 +98,7 @@ body {
 .prose-answer h2,
 .prose-answer h3,
 .prose-answer h4 {
-  @apply mt-3 mb-1 font-semibold text-slate-900 dark:text-slate-100;
+  @apply mt-3 mb-1 font-semibold tracking-tight text-ink dark:text-slate-50;
 }
 .prose-answer p {
   @apply my-1.5 leading-relaxed;
@@ -67,4 +127,14 @@ body {
   margin-left: 2px;
   animation: blink 1s steps(1) infinite;
   @apply text-brand-500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -151,6 +151,8 @@ describe('evaluation', () => {
       { name: '', page: 7 },
     ]);
     expect(extractCitations('x [p. 2402, 2403]')).toEqual([2402, 2403]);
+    const long = `Sources: [${Array.from({ length: 6 }, (_, i) => `Guide to Retrieval-Augmented Generation p. ${i + 1}`).join('; ')}]`;
+    expect(parseCitations(long)).toHaveLength(6);
   });
   const sources = [
     { key: 'm:1', docId: 'm', docName: 'Handbook', page: 3, text: 'The standard treatment is surgical removal of the appendix (appendectomy), performed by open or laparoscopic technique.', tokens: 30, score: 1 },

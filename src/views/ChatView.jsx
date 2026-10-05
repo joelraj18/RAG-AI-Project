@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Square, Loader2, Sparkles, Columns2, FileText, Bot, User, Download, Upload, AlertCircle, KeyRound, Gauge, BarChart3, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Square, Loader2, Sparkles, Columns2, FileText, Download, Upload, AlertCircle, KeyRound, Gauge, BarChart3, ThumbsUp, ThumbsDown, PanelLeft, ArrowUp } from 'lucide-react';
 import Markdown from '../components/Markdown.jsx';
 import EvalPanel, { ConfidenceBadge } from '../components/EvalPanel.jsx';
 import Dashboard from '../components/Dashboard.jsx';
-import { Badge, Button, Empty, cx, download, ScoreRing } from '../components/ui.jsx';
+import { Badge, Button, Empty, cx, download, ScoreRing, Shelf, LinkButton, useDialog } from '../components/ui.jsx';
+import SessionsRail from '../components/SessionsRail.jsx';
 import { runQuestion, hydrateRecord, suggestQuestions } from '../lib/pipeline.js';
 import { resolveCitation } from '../lib/evaluate.js';
 import { providerLabel } from '../lib/llm.js';
@@ -15,7 +16,7 @@ import { fmtMs, uid } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
 import SecretInput from '../components/SecretInput.jsx';
 import { AccountStatus } from '../components/HfPanel.jsx';
-import { BILLING_URL, callsPerQuestion } from '../lib/hf.js';
+import { BILLING_URL } from '../lib/hf.js';
 
 const PHASE = {
   retrieving: 'Retrieving relevant passages…',
@@ -62,11 +63,9 @@ function AnswerCard({ rec, title, compact, multiDoc }) {
     if (r) openPage(r.docId, r.page, r.keys);
   };
   return (
-    <div className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-2 flex flex-wrap items-center gap-1.5">
-        <Badge color={rec.kind === 'vanilla' ? 'amber' : 'brand'}>
-          <Bot className="h-3 w-3" /> {title}
-        </Badge>
+    <div className="min-w-0 flex-1 rounded-[22px] bg-white p-5 shadow-card md:p-6 dark:bg-slate-900 dark:shadow-none dark:ring-1 dark:ring-slate-800">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="eyebrow mr-1">{title}</span>
         <Badge>{rec.model.split('/').pop()}</Badge>
         {rec.kind === 'rag' && (
           <Badge color="violet">
@@ -102,7 +101,7 @@ function AnswerCard({ rec, title, compact, multiDoc }) {
 
 export default function ChatView() {
   const store = useStore();
-  const { settings, setSettings, activeCollection, activeDocs, sets, kbLoading, embedStatus, setView, newSession, saveSession, kbOf, importSession, sessions, activeSessionId, usage, effectivePlan } = store;
+  const { settings, setSettings, activeCollection, activeDocs, sets, kbLoading, embedStatus, setView, newSession, saveSession, kbOf, importSession, sessions, activeSessionId } = store;
   const session = sessions.find((s) => s.id === activeSessionId) || null;
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -110,6 +109,8 @@ export default function ChatView() {
   const [dash, setDash] = useState(false);
   const [suggested, setSuggested] = useState([]);
   const [editingToken, setEditingToken] = useState(false);
+  const [rail, setRail] = useState(false);
+  const dialog = useDialog();
   const abortRef = useRef(null);
   const endRef = useRef(null);
   const importRef = useRef(null);
@@ -163,10 +164,10 @@ export default function ChatView() {
 
   if (!activeCollection || !activeDocs.length) {
     return (
-      <Empty icon={FileText} title="Add a document to start">
-        Upload a PDF, Word, HTML, Markdown or text file in <b>Documents</b>, or load the built-in guide to RAG. Files are parsed, cleaned, chunked and indexed in your browser and stay stored for future sessions.
-        <div className="mt-4">
-          <Button onClick={() => setView('library')}>Open Documents</Button>
+      <Empty icon={FileText} title="Chat with any document.">
+        Add a PDF, Word, HTML, Markdown or text file — or start with the built-in guide to RAG. Everything is processed and stored privately in your browser.
+        <div className="mt-6">
+          <Button size="lg" onClick={() => setView('library')}>Add a document</Button>
         </div>
       </Empty>
     );
@@ -237,210 +238,238 @@ export default function ChatView() {
   const exportJSON = () => download(new Blob([JSON.stringify(session)], { type: 'application/json' }), `${session.title.replace(/[^\w]+/g, '_').slice(0, 40)}.session.json`);
   const multiDoc = activeDocs.length > 1;
 
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/80 px-4 py-2.5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="mr-auto min-w-0">
-          <h2 className="truncate font-semibold">{session?.title || 'New session'}</h2>
-          <p className="truncate text-xs text-slate-500">
-            {activeCollection.name}: {activeDocs.map((d) => d.name).join(', ')} · {providerLabel(settings)}
-          </p>
-        </div>
-        <button onClick={() => setView('settings')} className="rounded-full" title={profile === 'custom' ? 'Custom settings' : PROFILES[profile].why}>
-          <Badge color="brand">profile: {profile === 'custom' ? 'custom' : PROFILES[profile].label}</Badge>
-        </button>
-        {(settings.provider === 'hf' || settings.provider === 'openai') && (
-          <button onClick={() => setView('settings')} title={`Each question uses about ${callsPerQuestion(settings).base} LLM call(s) with current settings${settings.provider === 'hf' ? ` (${effectivePlan === 'pro' ? 'PRO' : 'Free'} plan). See Settings → Usage.` : '.'}`}>
-            <Badge color={settings.provider === 'hf' && effectivePlan === 'free' && callsPerQuestion(settings).base > 2 ? 'amber' : 'slate'}>
-              LLM calls: {usage.visit.calls} this visit · ~{callsPerQuestion(settings).base}/question
-            </Badge>
-          </button>
-        )}
-        <Badge color={semanticReady ? 'green' : 'amber'} title="Semantic embeddings build in the background; keyword search works immediately">
-          <Gauge className="h-3 w-3" />
-          {semanticReady ? `${settings.retrievalMode} retrieval` : embedding.length ? `embedding ${Math.round((embedding.reduce((a, e) => a + e.done, 0) / embedding.reduce((a, e) => a + e.total, 0)) * 100)}% · keyword meanwhile` : 'keyword search (semantic index not ready)'}
-        </Badge>
-        <button
-          onClick={() => setCompare(!compare)}
-          disabled={settings.provider === 'extractive'}
-          className={cx('flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-40', compare ? 'bg-amber-50 text-amber-800 ring-amber-300 dark:bg-amber-900/30 dark:text-amber-200' : 'ring-slate-200 dark:ring-slate-700')}
-          title="Answer each question with RAG and with the plain LLM, then judge both against the documents"
-        >
-          <Columns2 className="h-3.5 w-3.5" /> RAG vs vanilla
-        </button>
-        {session?.messages.length > 0 && (
-          <>
-            <Button size="sm" variant="secondary" icon={BarChart3} onClick={() => setDash(true)}>Dashboard</Button>
-            <Button size="sm" variant="secondary" icon={Download} onClick={exportMarkdown} title="Export as Markdown report">MD</Button>
-            <Button size="sm" variant="secondary" icon={Download} onClick={exportJSON} title="Export session (re-importable)">JSON</Button>
-          </>
-        )}
-        <Button size="sm" variant="ghost" icon={Upload} onClick={() => importRef.current?.click()} title="Import a session JSON" />
-        <input
-          ref={importRef}
-          type="file"
-          accept=".json"
-          hidden
-          onChange={async (e) => {
-            try {
-              await importSession(JSON.parse(await e.target.files[0].text()));
-            } catch (err) {
-              alert(String(err.message || err));
-            }
-            e.target.value = '';
-          }}
-        />
-      </header>
+  const chip = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition';
+  const retrievalLabel = semanticReady
+    ? `${settings.retrievalMode} search`
+    : embedding.length
+      ? `indexing ${Math.round((embedding.reduce((a, e) => a + e.done, 0) / embedding.reduce((a, e) => a + e.total, 0)) * 100)}% · keyword search meanwhile`
+      : 'keyword search';
 
-      {settings.provider === 'extractive' && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-          <KeyRound className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">
-            Extractive mode quotes the best sentences (instant, no LLM). For written answers and the LLM judge, add a free Hugging Face token — the recommended option for the best quality.
-          </span>
-          <button className="font-semibold underline" onClick={() => setView('settings')}>Open settings</button>
-        </div>
-      )}
-      {settings.provider === 'hf' && (!settings.hfToken || editingToken) && (
-        <div className="border-b border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-900 dark:bg-brand-900/20">
-          <div className="mx-auto max-w-3xl">
-            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-900 dark:text-brand-100">
-              <KeyRound className="h-4 w-4" /> Enter your Hugging Face token to start (needed once per visit)
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <SecretInput
-                  value={settings.hfToken}
-                  onChange={(v) => {
-                    setEditingToken(true);
-                    setSettings({ hfToken: v });
+  return (
+    <div className="flex h-full min-h-0">
+      <SessionsRail open={rail} onClose={() => setRail(false)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="scroll-thin flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-[980px] px-4 pb-10 sm:px-6">
+            <div className="flex flex-wrap items-center gap-2 pt-6 pb-5">
+              <button onClick={() => setRail(true)} className={cx(chip, 'bg-white shadow-card lg:hidden dark:bg-slate-900')} aria-label="Show sessions">
+                <PanelLeft className="h-3.5 w-3.5" /> Sessions
+              </button>
+              <div className="mr-auto min-w-0">
+                <h1 className="headline truncate text-2xl md:text-[28px]">{session?.title || 'New session'}</h1>
+                <p className="truncate text-sm text-slate-500">
+                  {activeCollection.name} · {activeDocs.map((d) => d.name).join(', ')} · {providerLabel(settings)}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button onClick={() => setView('settings')} className={cx(chip, 'bg-white text-ink shadow-card dark:bg-slate-900 dark:text-slate-100')} title={profile === 'custom' ? 'Custom settings' : PROFILES[profile].why}>
+                  {profile === 'custom' ? 'Custom' : PROFILES[profile].label} profile
+                </button>
+                <span className={cx(chip, 'bg-white shadow-card dark:bg-slate-900', semanticReady ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400')} title="Semantic embeddings build in the background; keyword search works immediately">
+                  <Gauge className="h-3.5 w-3.5" /> {retrievalLabel}
+                </span>
+                <button
+                  onClick={() => setCompare(!compare)}
+                  disabled={settings.provider === 'extractive'}
+                  aria-pressed={compare}
+                  className={cx(chip, 'shadow-card disabled:opacity-40', compare ? 'bg-ink text-white dark:bg-white dark:text-ink' : 'bg-white dark:bg-slate-900')}
+                  title="Answer each question with RAG and with the plain LLM, then judge both against the documents"
+                >
+                  <Columns2 className="h-3.5 w-3.5" /> RAG vs vanilla
+                </button>
+                {session?.messages.length > 0 && (
+                  <>
+                    <button className={cx(chip, 'bg-white shadow-card dark:bg-slate-900')} onClick={() => setDash(true)}>
+                      <BarChart3 className="h-3.5 w-3.5" /> Dashboard
+                    </button>
+                    <button className={cx(chip, 'bg-white shadow-card dark:bg-slate-900')} onClick={exportMarkdown} title="Export as a Markdown report">
+                      <Download className="h-3.5 w-3.5" /> Report
+                    </button>
+                    <button className={cx(chip, 'bg-white shadow-card dark:bg-slate-900')} onClick={exportJSON} title="Export session (re-importable JSON)">
+                      <Download className="h-3.5 w-3.5" /> JSON
+                    </button>
+                  </>
+                )}
+                <button className={cx(chip, 'bg-white shadow-card dark:bg-slate-900')} onClick={() => importRef.current?.click()} title="Import a session JSON">
+                  <Upload className="h-3.5 w-3.5" /> Import
+                </button>
+                <input
+                  ref={importRef}
+                  type="file"
+                  accept=".json"
+                  hidden
+                  onChange={async (e) => {
+                    try {
+                      await importSession(JSON.parse(await e.target.files[0].text()));
+                      dialog.toast('Session imported');
+                    } catch (err) {
+                      dialog.toast(String(err.message || err), 'error');
+                    }
+                    e.target.value = '';
                   }}
                 />
               </div>
-              <Button disabled={!settings.hfToken} onClick={() => setEditingToken(false)}>Use token</Button>
             </div>
-            <div className="mt-1.5">
-              <AccountStatus compact />
+
+            {settings.provider === 'hf' && (!settings.hfToken || editingToken) && (
+              <div className="mb-6 rounded-[22px] bg-white p-5 shadow-card dark:bg-slate-900">
+                <div className="mb-2 flex items-center gap-2 text-[15px] font-semibold">
+                  <KeyRound className="h-4 w-4" /> Enter your Hugging Face token to start.
+                  <span className="font-normal text-slate-500">Needed once per visit — it is never saved.</span>
+                </div>
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="min-w-[240px] flex-1">
+                    <SecretInput
+                      value={settings.hfToken}
+                      onChange={(v) => {
+                        setEditingToken(true);
+                        setSettings({ hfToken: v });
+                      }}
+                    />
+                  </div>
+                  <Button disabled={!settings.hfToken} onClick={() => setEditingToken(false)}>Use token</Button>
+                </div>
+                <div className="mt-2">
+                  <AccountStatus compact />
+                </div>
+              </div>
+            )}
+            {settings.provider === 'browser' && noGpu && (
+              <p className="mb-6 rounded-[18px] bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+                No WebGPU in this browser: the in-browser model runs on the CPU and will be slow. Hugging Face Inference is much faster.
+              </p>
+            )}
+
+            {!messages.length && (
+              <div className="pt-4">
+                <h2 className="headline text-3xl leading-tight sm:text-4xl md:text-5xl">
+                  Ask {multiDoc ? `${activeDocs.length} documents` : activeDocs[0].name}.{' '}
+                  <span className="text-slate-500 dark:text-slate-400">Every answer cites its pages and shows how it was made.</span>
+                </h2>
+                {kbLoading && (
+                  <p className="mt-5 flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading indexes…
+                  </p>
+                )}
+                {suggested.length > 0 && (
+                  <>
+                    <div className="mt-10 mb-4 flex flex-wrap items-end justify-between gap-2">
+                      <h3 className="headline text-xl">
+                        Try asking. <span className="text-slate-500 dark:text-slate-400">{suggestedAI ? 'Written by AI for these documents.' : 'Based on the document’s sections.'}</span>
+                      </h3>
+                      {llmOn && !p.sampleQuestions && !suggestedAI && (
+                        <LinkButton onClick={() => setAiRequested(true)} disabled={aiBusy} className="text-sm disabled:opacity-50">
+                          {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Suggest with AI ({Math.min(3, sets.length)} LLM call{sets.length > 1 ? 's' : ''})
+                        </LinkButton>
+                      )}
+                    </div>
+                    <Shelf>
+                      {suggested.map((q, i) => (
+                        <button
+                          key={q}
+                          onClick={() => ask(q)}
+                          className="flex h-48 w-72 flex-col rounded-[18px] bg-white p-6 text-left shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-slate-900"
+                        >
+                          <span className="eyebrow">{i === 0 ? 'Start here' : 'Suggested'}</span>
+                          <span className="headline mt-2 line-clamp-4 text-[17px] leading-snug">{q}</span>
+                          <span className="mt-auto text-sm text-brand-700 dark:text-brand-400">Ask ›</span>
+                        </button>
+                      ))}
+                    </Shelf>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-10">
+              {messages.map((m, i) => (
+                <div key={m.id} className="space-y-3">
+                  <div className="flex justify-end">
+                    <div className="max-w-2xl rounded-[22px] rounded-br-md bg-brand-600 px-5 py-3 text-[15px] text-white">{m.question}</div>
+                  </div>
+                  {m.vanilla ? (
+                    <>
+                      <div className="flex flex-col gap-4 lg:flex-row">
+                        {m.rag && <AnswerCard rec={m.rag} title="RAG answer" compact multiDoc={multiDoc} />}
+                        <AnswerCard rec={m.vanilla} title="Vanilla LLM · no retrieval" compact />
+                      </div>
+                      {m.rag && (
+                        <details className="rounded-[22px] bg-white p-5 shadow-card dark:bg-slate-900">
+                          <summary className="cursor-pointer text-sm font-medium">Full RAG trace & evaluation</summary>
+                          <EvalPanel rec={m.rag} />
+                        </details>
+                      )}
+                    </>
+                  ) : (
+                    m.rag && <AnswerCard rec={m.rag} title="Answer" multiDoc={multiDoc} />
+                  )}
+                  {m.rag?.phase === 'done' && (
+                    <div className="flex items-center gap-1 pl-2 text-xs text-slate-500">
+                      Was this helpful?
+                      <button onClick={() => setFeedback(i, 'up')} aria-pressed={m.feedback === 'up'} className={cx('rounded-full p-1.5 hover:bg-white dark:hover:bg-slate-800', m.feedback === 'up' && 'text-emerald-600')} aria-label="Helpful">
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setFeedback(i, 'down')} aria-pressed={m.feedback === 'down'} className={cx('rounded-full p-1.5 hover:bg-white dark:hover:bg-slate-800', m.feedback === 'down' && 'text-rose-600')} aria-label="Not helpful">
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
+            <div ref={endRef} />
           </div>
         </div>
-      )}
-      {settings.provider === 'browser' && noGpu && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-          No WebGPU in this browser: the in-browser model runs on the CPU and will be slow. Hugging Face Inference is much faster.
-        </div>
-      )}
 
-      <div className="scroll-thin flex-1 overflow-y-auto px-4 py-6">
-        <div className="mx-auto max-w-5xl space-y-8">
-          {!messages.length && (
-            <div className="py-6 text-center">
-              <div className="mx-auto mb-4 w-fit rounded-2xl bg-brand-50 p-4 text-brand-600 dark:bg-brand-900/30 dark:text-brand-300">
-                <Sparkles className="h-8 w-8" />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Ask {multiDoc ? `${activeDocs.length} documents` : activeDocs[0].name}</h2>
-              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-                Answers are grounded in retrieved passages, cite them as <Badge color="brand">p.12</Badge> (click to open the page), and come with timing, groundedness, relevance and a confidence rating.
-              </p>
-              {kbLoading && <p className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading indexes…</p>}
-              <div className="mx-auto mt-6 grid max-w-3xl gap-2 text-left sm:grid-cols-2">
-                {suggested.map((q) => (
-                  <button key={q} onClick={() => ask(q)} className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 transition hover:border-brand-400 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                    {q}
-                  </button>
-                ))}
-              </div>
-              {llmOn && !p.sampleQuestions && !suggestedAI && (
-                <button onClick={() => setAiRequested(true)} disabled={aiBusy} className="mx-auto mt-3 flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline disabled:opacity-50 dark:text-brand-300">
-                  {aiBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Suggest better questions with AI (uses {Math.min(3, sets.length)} LLM call{sets.length > 1 ? 's' : ''})
-                </button>
-              )}
-            </div>
-          )}
-          {messages.map((m, i) => (
-            <div key={m.id} className="space-y-3">
-              <div className="flex justify-end">
-                <div className="flex max-w-3xl items-start gap-2 rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-2.5 text-sm text-white shadow-sm">
-                  <span>{m.question}</span>
-                  <User className="mt-0.5 h-4 w-4 shrink-0 opacity-70" />
-                </div>
-              </div>
-              {m.vanilla ? (
-                <>
-                  <div className="flex flex-col gap-3 lg:flex-row">
-                    {m.rag && <AnswerCard rec={m.rag} title="RAG answer" compact multiDoc={multiDoc} />}
-                    <AnswerCard rec={m.vanilla} title="Vanilla LLM (no retrieval)" compact />
-                  </div>
-                  {m.rag && (
-                    <details className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-                      <summary className="cursor-pointer text-sm font-medium">Full RAG trace & evaluation</summary>
-                      <EvalPanel rec={m.rag} />
-                    </details>
-                  )}
-                </>
-              ) : (
-                m.rag && <AnswerCard rec={m.rag} title="RAG answer" multiDoc={multiDoc} />
-              )}
-              {m.rag?.phase === 'done' && (
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  Was this answer useful?
-                  <button onClick={() => setFeedback(i, 'up')} className={cx('rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800', m.feedback === 'up' && 'text-emerald-600')} aria-label="Helpful">
-                    <ThumbsUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => setFeedback(i, 'down')} className={cx('rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800', m.feedback === 'down' && 'text-rose-600')} aria-label="Not helpful">
-                    <ThumbsDown className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={endRef} />
-        </div>
-      </div>
-
-      <div className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-        <form
-          className="mx-auto flex max-w-5xl items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            ask();
-          }}
-        >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                ask();
-              }
+        <div className="glass border-t border-black/5 px-4 pt-3 pb-4 dark:border-white/10">
+          <form
+            className="mx-auto flex max-w-[980px] items-end gap-2 rounded-[26px] bg-white py-1.5 pr-1.5 pl-5 shadow-card ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-brand-600 dark:bg-slate-900 dark:ring-white/10"
+            onSubmit={(e) => {
+              e.preventDefault();
+              ask();
             }}
-            rows={Math.min(5, Math.max(1, input.split('\n').length))}
-            placeholder={kbLoading ? 'Loading indexes…' : `Ask about ${multiDoc ? 'these documents' : activeDocs[0].name}…`}
-            disabled={kbLoading}
-            className="flex-1 resize-none rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm outline-none focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950"
-          />
-          {busy ? (
-            <Button type="button" variant="secondary" size="lg" icon={Square} onClick={() => abortRef.current?.abort()}>Stop</Button>
-          ) : (
-            <Button type="submit" size="lg" icon={Send} disabled={!input.trim() || kbLoading}>Ask</Button>
-          )}
-        </form>
-        <div className="mx-auto mt-1.5 flex max-w-5xl flex-wrap gap-3 text-[11px] text-slate-400">
-          <span>k={settings.k}</span>
-          <span>temp {settings.temperature}</span>
-          <span>max {settings.maxTokens} tok</span>
-          <span>judge {settings.judgeMode}</span>
-          {[
-            ['rerank', 'rerank (better order, +23 MB once)'],
-            ['corrective', 'corrective retry'],
-            ['hyde', 'HyDE'],
-          ].map(([k, label]) => (
-            <label key={k} className="flex cursor-pointer items-center gap-1">
-              <input type="checkbox" checked={settings[k]} onChange={(e) => setSettings({ [k]: e.target.checked })} className="accent-brand-600" />
-              {label}
-            </label>
-          ))}
+          >
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  ask();
+                }
+              }}
+              rows={Math.min(5, Math.max(1, input.split('\n').length))}
+              placeholder={kbLoading ? 'Loading indexes…' : multiDoc ? 'Ask these documents…' : activeDocs[0].name.length > 28 ? 'Ask this document…' : `Ask ${activeDocs[0].name}…`}
+              disabled={kbLoading}
+              aria-label="Your question"
+              className="max-h-40 flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-slate-400"
+            />
+            {busy ? (
+              <button type="button" onClick={() => abortRef.current?.abort()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-ink hover:bg-slate-300 dark:bg-slate-700 dark:text-white" aria-label="Stop">
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </button>
+            ) : (
+              <button type="submit" disabled={!input.trim() || kbLoading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white transition hover:bg-brand-500 disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-800" aria-label="Ask">
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            )}
+          </form>
+          <div className="mx-auto mt-2 flex max-w-[980px] flex-wrap items-center gap-x-4 gap-y-1 px-2 text-xs text-slate-500">
+            <span>k = {settings.k}</span>
+            <span>temperature {settings.temperature}</span>
+            <span>max {settings.maxTokens} tokens</span>
+            <span>judge: {settings.judgeMode}</span>
+            {[
+              ['rerank', 'Rerank'],
+              ['corrective', 'Corrective retry'],
+              ['hyde', 'HyDE'],
+            ].map(([k, label]) => (
+              <label key={k} className="flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" checked={settings[k]} onChange={(e) => setSettings({ [k]: e.target.checked })} className="h-3.5 w-3.5 accent-brand-600" />
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
       <Dashboard session={session} open={dash} onClose={() => setDash(false)} />
