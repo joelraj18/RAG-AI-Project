@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bot, Search, Scale, Database, KeyRound, CheckCircle2, XCircle, Loader2, RotateCcw, ExternalLink, Zap, Layers, BookType } from 'lucide-react';
-import { Button, Card, CardHeader, Field, Toggle, inputCls, cx, Badge, OptionCard, TagBadges } from '../components/ui.jsx';
+import { Button, Card, CardHeader, Field, Toggle, inputCls, cx, Badge, OptionCard, TagBadges, PageHeader, useDialog } from '../components/ui.jsx';
 import { PROVIDERS, BROWSER_MODELS, generate } from '../lib/llm.js';
 import { EMBED_MODELS, RERANK_MODEL } from '../lib/workers.js';
 import { PROFILES, matchProfile } from '../lib/settings.js';
@@ -30,6 +30,7 @@ const JUDGE = [
 
 export default function SettingsView() {
   const { settings: s, setSettings, docs } = useStore();
+  const dialog = useDialog();
   const [test, setTest] = useState(null);
   const [usage, setUsage] = useState(null);
   const num = (k) => (e) => setSettings({ [k]: Number(e.target.value) });
@@ -52,13 +53,19 @@ export default function SettingsView() {
 
   return (
     <div className="scroll-thin h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
-          <p className="text-sm text-slate-500">
-            Badges show the trade-off of each option: <TagBadges tags={['recommended', 'fastest', 'lightest', 'quality', 'private']} />. Settings are saved in this browser; API tokens are never saved (memory only).
-          </p>
-        </div>
+      <div className="mx-auto max-w-[1100px] space-y-8 px-4 pb-16 sm:px-6">
+        <PageHeader
+          title="Settings"
+          tagline="Tuned for speed, cost or quality."
+          links={
+            <>
+              <span className="flex flex-wrap gap-1 md:justify-end">
+                <TagBadges tags={['recommended', 'fastest', 'lightest', 'quality', 'private']} />
+              </span>
+              <span className="text-sm text-slate-500">Saved in this browser. API tokens are never saved.</span>
+            </>
+          }
+        />
 
         <Card>
           <CardHeader icon={Zap} title="Quick profile" subtitle={`Sets retrieval, reranking, judging and embedding options in one click. Current: ${profile === 'custom' ? 'custom' : PROFILES[profile].label}.`} />
@@ -252,7 +259,7 @@ export default function SettingsView() {
               variant="danger"
               size="sm"
               onClick={async () => {
-                if (!confirm('Delete all documents, sessions and experiments from this browser?')) return;
+                if (!(await dialog.confirm('Delete all documents, collections, sessions and experiments from this browser? This cannot be undone.', { title: 'Clear all data', confirmLabel: 'Delete everything', danger: true }))) return;
                 await db.clearAll();
                 location.reload();
               }}

@@ -44,7 +44,7 @@ export function parseCombinedJudge(text) {
 
 // ---------------- citations ----------------
 
-const BRACKET = /\[([^[\]]{1,160})\]/g;
+const BRACKET = /\[([^[\]]{1,800})\]/g; // long enough for multi-document "Sources: […]" lists
 const REF = /^(.*?)[\s,]*\bp(?:age|g|p)?\.?\s*(\d[\d,\s–-]*)$/i;
 /** Matches a citation bracket, used to strip citations from claim text. */
 export const CITE_STRIP = /\[[^[\]]*?\bp(?:age|g|p)?\.?\s*\d[^[\]]*\]/gi;
