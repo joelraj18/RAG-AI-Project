@@ -116,7 +116,10 @@ export async function suggestQuestions(settings, doc, kb) {
     }
   }
   const step = Math.max(1, Math.floor(sections.length / 5));
-  return sections.filter((_, i) => i % step === 0).slice(0, 5).map((s) => `What does ${doc.name} say about ${s.replace(/[:.]$/, '')}?`);
+  return sections
+    .filter((_, i) => i % step === 0)
+    .slice(0, 5)
+    .map((s) => (s.trim().endsWith('?') ? s.trim() : `What does ${doc.name} say about ${s.replace(/^(step|chapter|section)\s*\d+[:.]?\s*/i, '').replace(/[:.]$/, '')}?`));
 }
 
 /**

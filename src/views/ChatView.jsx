@@ -13,6 +13,7 @@ import { vectorsReady } from '../lib/kb.js';
 import { db } from '../lib/db.js';
 import { fmtMs, uid } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
+import SecretInput from '../components/SecretInput.jsx';
 
 const PHASE = {
   retrieving: 'Retrieving relevant passages…',
@@ -79,6 +80,7 @@ export default function ChatView() {
   const [compare, setCompare] = useState(false);
   const [dash, setDash] = useState(false);
   const [suggested, setSuggested] = useState([]);
+  const [editingToken, setEditingToken] = useState(false);
   const abortRef = useRef(null);
   const endRef = useRef(null);
   const importRef = useRef(null);
@@ -137,6 +139,7 @@ export default function ChatView() {
     const question = (q ?? input).trim();
     if (!question || busy || kbLoading || !sets.length) return;
     setInput('');
+    setEditingToken(false);
     setBusy(true);
     let s = session || newSession();
     if (s.title === 'New session') s = { ...s, title: question.length > 60 ? question.slice(0, 57) + '…' : question };
@@ -247,6 +250,27 @@ export default function ChatView() {
             Extractive mode quotes the best sentences (instant, no LLM). For written answers and the LLM judge, add a free Hugging Face token — the recommended option for the best quality.
           </span>
           <button className="font-semibold underline" onClick={() => setView('settings')}>Open settings</button>
+        </div>
+      )}
+      {settings.provider === 'hf' && (!settings.hfToken || editingToken) && (
+        <div className="border-b border-brand-200 bg-brand-50 px-4 py-3 dark:border-brand-900 dark:bg-brand-900/20">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-brand-900 dark:text-brand-100">
+              <KeyRound className="h-4 w-4" /> Enter your Hugging Face token to start (needed once per visit)
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <SecretInput
+                  value={settings.hfToken}
+                  onChange={(v) => {
+                    setEditingToken(true);
+                    setSettings({ hfToken: v });
+                  }}
+                />
+              </div>
+              <Button disabled={!settings.hfToken} onClick={() => setEditingToken(false)}>Use token</Button>
+            </div>
+          </div>
         </div>
       )}
       {settings.provider === 'browser' && noGpu && (

@@ -62,9 +62,23 @@ export function matchProfile(s) {
 
 const KEY = 'rag-ai-studio.settings.v1';
 
+// API keys and tokens live ONLY in this tab's memory. They are never written to
+// localStorage, IndexedDB, cookies, exports or URLs, and disappear on reload / tab close.
+export const SECRET_KEYS = ['hfToken', 'openaiKey'];
+
+/** The settings object that may be written to disk: everything except secrets. */
+export function persistable(s) {
+  const out = { ...s };
+  for (const k of SECRET_KEYS) delete out[k];
+  return out;
+}
+
 export function loadSettings() {
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY) || '{}') };
+    const stored = JSON.parse(localStorage.getItem(KEY) || '{}');
+    // purge secrets that older versions of the app may have saved
+    if (SECRET_KEYS.some((k) => k in stored)) localStorage.setItem(KEY, JSON.stringify(persistable(stored)));
+    return { ...DEFAULT_SETTINGS, ...persistable(stored) };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -72,7 +86,7 @@ export function loadSettings() {
 
 export function saveSettings(s) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    localStorage.setItem(KEY, JSON.stringify(persistable(s)));
   } catch {
     /* storage unavailable (private mode) – settings stay in memory */
   }

@@ -96,7 +96,12 @@ Manual") and has been generalised to any document. "Medical" is now one of six d
 | **OpenAI-compatible** | e.g. `OLLAMA_ORIGINS=* ollama serve` and then `ollama pull mistral:7b-instruct` | Same Mistral-7B as the notebook. Groq and OpenRouter free tiers also work. |
 | **In-browser** | none (0.4–1.1 GB downloaded once) | Private; use WebGPU (Chrome/Edge) for usable speed |
 
-Keys stay in your browser's localStorage and are sent only to the provider you pick.
+**API tokens are never saved.** The Hugging Face token (and any API key) is typed into a masked field and kept only in
+the memory of the current tab. It is never written to localStorage, IndexedDB, cookies, exports or the URL, and tokens
+saved by older versions are purged on load. Reloading or closing the tab erases it, so you enter it once per visit. It is sent
+over HTTPS only to the provider you chose; the site has no server of its own. The **Safety** button next to the field explains
+this and lists best practices: use a fine-grained token with only "Make calls to Inference Providers", and revoke it when
+you're done. If your browser offers to save it as a password, choose "Never".
 
 ## Architecture
 

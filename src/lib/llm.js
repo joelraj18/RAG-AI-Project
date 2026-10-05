@@ -149,7 +149,7 @@ export async function generate(settings, { messages, maxTokens, temperature, top
     signal,
   };
   if (p === 'hf') {
-    if (!settings.hfToken) throw new Error('Add your free Hugging Face token in Settings (huggingface.co/settings/tokens).');
+    if (!settings.hfToken) throw new Error('Enter your Hugging Face token (it is kept only in memory for this tab, so it is needed again after a reload).');
     return chatCompletions({
       ...common,
       url: 'https://router.huggingface.co/v1/chat/completions',

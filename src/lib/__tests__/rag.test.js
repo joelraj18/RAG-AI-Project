@@ -227,3 +227,29 @@ describe('loaders', () => {
     expect(pages[0].text).toMatch(/Install the tool now/);
   });
 });
+
+describe('API token privacy', () => {
+  const fakeStorage = () => {
+    const m = new Map();
+    return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), dump: () => [...m.values()].join('\n') };
+  };
+  it('never writes tokens or API keys to localStorage', async () => {
+    const { saveSettings, persistable } = await import('../settings.js');
+    globalThis.localStorage = fakeStorage();
+    saveSettings({ ...DEFAULT_SETTINGS, hfToken: 'hf_SECRET123', openaiKey: 'sk-SECRET456', k: 7 });
+    const saved = globalThis.localStorage.dump();
+    expect(saved).not.toMatch(/SECRET/);
+    expect(saved).toMatch(/"k":7/);
+    expect(persistable({ hfToken: 'x', openaiKey: 'y', k: 1 })).toEqual({ k: 1 });
+  });
+  it('purges a token saved by an older version and does not load it', async () => {
+    const { loadSettings } = await import('../settings.js');
+    globalThis.localStorage = fakeStorage();
+    globalThis.localStorage.setItem('rag-ai-studio.settings.v1', JSON.stringify({ hfToken: 'hf_OLDSECRET', k: 2 }));
+    const s = loadSettings();
+    expect(s.hfToken).toBe('');
+    expect(s.k).toBe(2);
+    expect(globalThis.localStorage.dump()).not.toMatch(/OLDSECRET/);
+    delete globalThis.localStorage;
+  });
+});

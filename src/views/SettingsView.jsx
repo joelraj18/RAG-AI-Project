@@ -11,6 +11,7 @@ import { docBytes } from '../lib/kb.js';
 import { db, storageEstimate } from '../lib/db.js';
 import { fmtMs, fmtBytes } from '../lib/text.js';
 import { useStore } from '../state/store.jsx';
+import SecretInput from '../components/SecretInput.jsx';
 
 const MODES = [
   { id: 'hybrid', title: 'Hybrid (BM25 + semantic)', tags: ['recommended', 'quality'], why: 'Combines exact keyword matches with meaning; best recall on most documents.', cost: '+5–20 ms' },
@@ -53,7 +54,7 @@ export default function SettingsView() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Settings</h1>
           <p className="text-sm text-slate-500">
-            Badges show the trade-off of each option: <TagBadges tags={['recommended', 'fastest', 'lightest', 'quality', 'private']} />. Saved in this browser only.
+            Badges show the trade-off of each option: <TagBadges tags={['recommended', 'fastest', 'lightest', 'quality', 'private']} />. Settings are saved in this browser; API tokens are never saved (memory only).
           </p>
         </div>
 
@@ -93,7 +94,7 @@ export default function SettingsView() {
                     </a>
                   }
                 >
-                  <input type="password" value={s.hfToken} onChange={(e) => setSettings({ hfToken: e.target.value.trim() })} placeholder="hf_…" className={inputCls} />
+                  <SecretInput value={s.hfToken} onChange={(v) => setSettings({ hfToken: v })} />
                 </Field>
                 <Field label="Model" hint="8B models answer in ~2–5 s; 70B models are higher quality but slower and use more free credits. Append :fastest to pick the fastest provider.">
                   <input list="hf-models" value={s.hfModel} onChange={(e) => setSettings({ hfModel: e.target.value })} className={inputCls} />
@@ -107,7 +108,7 @@ export default function SettingsView() {
                   <input value={s.openaiBaseUrl} onChange={(e) => setSettings({ openaiBaseUrl: e.target.value })} className={inputCls} />
                 </Field>
                 <Field label="API key" hint="Optional for local servers">
-                  <input type="password" value={s.openaiKey} onChange={(e) => setSettings({ openaiKey: e.target.value })} className={inputCls} />
+                  <SecretInput value={s.openaiKey} onChange={(v) => setSettings({ openaiKey: v })} placeholder="sk-… (optional)" label="API key" provider="openai" />
                 </Field>
                 <Field label="Model">
                   <input value={s.openaiModel} onChange={(e) => setSettings({ openaiModel: e.target.value })} className={inputCls} />
