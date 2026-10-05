@@ -1,0 +1,38 @@
+name: Sync MediRAG Studio to a Hugging Face Space
+
+# Optional free hosting on Hugging Face Spaces (static SDK).
+# Setup once: repo Settings → Secrets and variables → Actions
+#   - secret   HF_TOKEN  = a Hugging Face token with "write" access
+#   - variable HF_SPACE  = <hf-username>/medirag-studio
+# The job is skipped until both are set.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    if: vars.HF_SPACE != ''
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: medirag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: medirag/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet huggingface_hub
+      - name: Upload build to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: python scripts/push_to_hf_space.py dist
