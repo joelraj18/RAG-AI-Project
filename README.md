@@ -114,6 +114,10 @@ Smaller fixes that are not timed above:
   without WebGPU it downloads 786 MB.
 - **Answer similarity measures the answer itself.** It used to embed the answer as if it were a question (bge-small
   adds a search prefix to questions) and stored it in the question cache.
+- **Each model loads once.** A question asked while a model was still loading used to start a second copy (twice the
+  download and memory).
+- **Prompt token counts for the in-browser model** were missing after a change in transformers.js 4; answers show
+  them again.
 - **Llama 3.2 1B** now points at its renamed repository instead of a redirect.
 
 ### Results
