@@ -31,14 +31,14 @@ export function mmr(index, candidates, k, lambda = 0.5) {
   return chosen;
 }
 
-/** Reciprocal Rank Fusion. Items are matched by `key` (default: idx). */
-export function rrf(lists, k = 60, key = (x) => x.idx) {
+/** Reciprocal Rank Fusion. Items are matched by `key` (default: idx); `weights` scale each list. */
+export function rrf(lists, k = 60, key = (x) => x.idx, weights = []) {
   const fused = new Map();
   lists.forEach((list, li) =>
     list.forEach((item, rank) => {
       const id = key(item);
       const e = fused.get(id) || { ...item, score: 0, parts: {}, ranks: {} };
-      e.score += 1 / (k + rank + 1);
+      e.score += (weights[li] ?? 1) / (k + rank + 1);
       e.parts[li] = item.score;
       e.ranks[li] = rank + 1;
       fused.set(id, e);

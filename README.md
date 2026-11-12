@@ -95,6 +95,49 @@ The interface follows a clean, store-like design language:
 **Guidance:** every option carries ⭐ Recommended / ⚡ Fastest / 💾 Lightest / 🎯 Best quality / 🔒 Private badges, and the
 **Quick profile** setting (Fast · Balanced · Best quality) applies a whole set of options in one click.
 
+## Performance: before and after
+
+This round audited how well the app finds and answers, and how fast its local models run, then fixed what the
+measurements showed. Every number below comes from the same benchmark code run on the old version
+(`main` before this change) and the new one, on public datasets and in a real browser.
+
+### What changed, in plain words
+
+<!-- plain:start -->
+<!-- plain:end -->
+
+### Results
+
+<!-- bench:start -->
+<!-- bench:end -->
+
+### How it was measured
+
+- **Datasets** (downloaded by the benchmark, not stored in this repository):
+  - [SciFact](https://github.com/allenai/scifact) via [BEIR](https://github.com/beir-cellar/beir): 5,183 scientific
+    abstracts, 300 test and 809 training questions with known relevant documents.
+  - SciFact claims: 338 claim and evidence pairs (development set) labelled supported or contradicted.
+  - [SQuAD v1.1](https://rajpurkar.github.io/SQuAD-explorer/) development set, loaded as one collection of 48 Wikipedia
+    articles (643 pages, 1,413 chunks) through the app's own pipeline, with 10,570 questions whose answer page is known.
+  - [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/) (medical, 3,633 documents, 323 test questions)
+    as a final check that was never used while tuning.
+- **No tuning on the reported data.** Every setting was chosen on SciFact's training questions, the SciFact training
+  claims and one half of the SQuAD questions (split by a hash of the question id). The tables report only the other
+  half and SciFact's test questions. One early prototype of the tokenizer was looked at on SciFact test before this
+  rule was set; the final choice was confirmed on the training splits and on the untouched NFCorpus check.
+- **Real app code, real browser.** The harness (`bench/`) loads the old and the new `src/lib` and runs retrieval and
+  answers through the app's own `runQuestion`. All model outputs come from the app's own Web Workers in headless
+  Chromium (WebAssembly, no GPU), served from a local mirror of the model files.
+- **Uncertainty.** Changes in quality come with a 95% confidence interval from a paired bootstrap over the questions.
+  Speed is the median of repeated runs after a warm-up, with the old and new builds run in turn.
+- **Hardware.** A 4 vCPU cloud machine with 15 GB of memory and no GPU. On a phone or a fast laptop the absolute
+  numbers will differ; the before and after ratios are what to compare.
+- **Not measured here:** Ollama and other local servers (the compact context applies to them, but none could run in the
+  test machine), WebGPU, and cloud LLM answers.
+
+Reproduce with `npm run bench` (needs `npx playwright install chromium` once and about 2 GB of downloads), then
+`npm run bench:report` to rebuild these tables and charts.
+
 ## Which options should I choose?
 
 | Goal | Choose |
@@ -288,17 +331,19 @@ example `your-name/rag-ai-studio`). To publish by hand:
   Use context relevance and the Evaluation Lab's hit@k to catch that.
 - Answers support research and decisions; they don't replace professional judgement. Check the cited pages.
 
-## You can get a free Hugging Face token in a couple of minutes.
+## Get a free Hugging Face token
+
+A free token takes a couple of minutes:
 
 - Create an account at https://huggingface.co/join, or log in if you have one. Verify your email, because token creation can be blocked until you do.
 - Open the tokens page: click your profile picture (top right) → Settings → Access Tokens, or go straight to https://huggingface.co/settings/tokens.
 - Create the token: click + Create new token and fill it in:
-Token type: Fine-grained.
-Name: something recognisable, like RAG AI Studio, so you can revoke it on its own later.
-Permissions: tick only "Make calls to Inference Providers" (under Inference). Leave everything else unticked; the app doesn't need repo or write access.
+  - Token type: Fine-grained.
+  - Name: something recognisable, like RAG AI Studio, so you can revoke it on its own later.
+  - Permissions: tick only "Make calls to Inference Providers" (under Inference). Leave everything else unticked; the app doesn't need repo or write access.
 - Click Create token.
 - Copy it right away. It starts with hf_ and is shown in full only once. If you lose it, create a new one.
 - Use it in the app:
-Go to Settings → Language model → Hugging Face Inference, or just start a chat, since the token box appears at the top.
-Paste the token into the masked field, then click Test connection in Settings, or Use token in the chat.
-It's kept only in that tab's memory, so you paste it again after a reload. If your browser offers to save it as a password, choose Never.
+  - Go to Settings → Language model → Hugging Face Inference, or just start a chat, since the token box appears at the top.
+  - Paste the token into the masked field, then click Test connection in Settings, or Use token in the chat.
+  - It's kept only in that tab's memory, so you paste it again after a reload. If your browser offers to save it as a password, choose Never.

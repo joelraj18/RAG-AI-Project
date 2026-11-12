@@ -116,8 +116,8 @@ export function preload(kind, model) {
   job.catch(() => preloaded.delete(key));
 }
 
-export async function rerank(query, passages) {
-  const res = await rerankClient.call({ model: RERANK_MODEL.id, query, passages });
+export async function rerank(query, passages, { maxLength } = {}) {
+  const res = await rerankClient.call({ model: RERANK_MODEL.id, query, passages, maxLength });
   return res.scores;
 }
 

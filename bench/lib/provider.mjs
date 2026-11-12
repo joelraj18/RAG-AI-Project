@@ -122,12 +122,12 @@ export class Provider {
     return h;
   }
 
-  async rerank(model, query, passages) {
+  async rerank(model, query, passages, maxLength) {
     const h = await this.rerankHandle(model);
-    const keys = passages.map((p) => sha1(`${query}\u0000${p}`));
+    const keys = passages.map((p) => sha1(`${query}\u0000${p}${maxLength ? `\u0000${maxLength}` : ''}`));
     const miss = passages.map((p, i) => [keys[i], p]).filter(([k]) => !h.store.get(k));
     if (miss.length) {
-      const [scores] = await this.pool([(pg) => pg.call('rerank', query, miss.map(([, p]) => p)).then((r) => r.scores)]);
+      const [scores] = await this.pool([(pg) => pg.call('rerank', query, miss.map(([, p]) => p), maxLength ? { maxLength } : {}).then((r) => r.scores)]);
       miss.forEach(([k], i) => h.store.set(k, [scores[i]]));
       h.store.flush();
     }

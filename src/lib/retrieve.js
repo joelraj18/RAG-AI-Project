@@ -17,8 +17,12 @@ const keyOf = (docId, idx) => `${docId}:${idx}`;
 
 export async function retrieve(sets, query, opts = {}) {
   const { mode = 'hybrid', k = 4, fetchK = 20, lambda = 0.5, useRerank = false, neighbors = false, contextBudget = 1800, semanticQuery } = opts;
+  // pool: candidates per list before fusion; weights: [semantic, keyword] list weights in RRF;
+  // rerankTop / rerankFuse / rerankMaxLength: how many candidates the cross-encoder scores, whether
+  // its order is fused with the first-stage order, and its input length
+  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = false, rerankMaxLength } = opts;
   const t = { queryEmbed: 0, search: 0, rerank: 0, expand: 0 };
-  const pool = Math.max(fetchK, k * 4);
+  const pool = opts.pool ?? Math.max(fetchK, k * 4);
 
   // 1. query embeddings, one per embedding model in use
   const sem = mode !== 'bm25' ? sets.filter((s) => vectorsReady(s.doc, s.kb)) : [];
@@ -72,20 +76,21 @@ export async function retrieve(sets, query, opts = {}) {
     }
     fused = list.map((x) => ({ ...x, scores: scoresOf(x) }));
   } else {
-    fused = rrf([semList, bm25List], 60, (x) => x.key).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
+    fused = rrf([semList, bm25List], 60, (x) => x.key, weights).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
     if (bm25Only) effective = 'hybrid (partial)';
   }
   t.search = performance.now() - t1;
 
   const textOf = (c) => sets.find((s) => s.doc.id === c.docId).kb.chunks[c.idx];
   // 3. optional cross-encoder rerank of the top candidates
-  let ranked = fused.slice(0, Math.max(k, useRerank ? fetchK : k));
+  let ranked = fused.slice(0, Math.max(k, useRerank ? rerankTop : k));
   let rerankError = null;
   if (useRerank && ranked.length > 1) {
     const t2 = performance.now();
     try {
-      const scores = await rerank(query, ranked.map((c) => textOf(c).text));
-      ranked = ranked.map((c, i) => ({ ...c, scores: { ...c.scores, rerank: scores[i] } })).sort((a, b) => b.scores.rerank - a.scores.rerank);
+      const scores = await rerank(query, ranked.map((c) => textOf(c).text), rerankMaxLength ? { maxLength: rerankMaxLength } : undefined);
+      const byRerank = ranked.map((c, i) => ({ ...c, scores: { ...c.scores, rerank: scores[i] } })).sort((a, b) => b.scores.rerank - a.scores.rerank);
+      ranked = rerankFuse ? rrf([byRerank, ranked], 60, (x) => x.key).map((x) => ({ ...x, scores: byRerank.find((y) => y.key === x.key).scores })) : byRerank;
     } catch (e) {
       rerankError = String(e.message || e);
     }

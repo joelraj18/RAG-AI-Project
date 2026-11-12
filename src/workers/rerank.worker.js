@@ -20,10 +20,10 @@ async function load(name) {
 }
 
 self.onmessage = async (e) => {
-  const { id, model: name, query, passages } = e.data;
+  const { id, model: name, query, passages, maxLength } = e.data;
   try {
     await load(name);
-    const inputs = tokenizer(new Array(passages.length).fill(query), { text_pair: passages, padding: true, truncation: true });
+    const inputs = tokenizer(new Array(passages.length).fill(query), { text_pair: passages, padding: true, truncation: true, ...(maxLength ? { max_length: maxLength } : {}) });
     const { logits } = await model(inputs);
     const raw = Array.from(logits.data);
     const scores = raw.map((x) => 1 / (1 + Math.exp(-x)));

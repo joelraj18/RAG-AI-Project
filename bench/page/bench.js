@@ -48,9 +48,9 @@ window.bench = {
     return { dim, ms: performance.now() - t0, b64: toB64(data) };
   },
 
-  async rerank(query, passages) {
+  async rerank(query, passages, opts) {
     const t0 = performance.now();
-    const scores = await W.rerank(query, passages);
+    const scores = await W.rerank(query, passages, opts);
     return { scores, ms: performance.now() - t0 };
   },
 

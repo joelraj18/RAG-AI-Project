@@ -19,7 +19,7 @@ export function installWorkerShim(provider) {
           const { dim, data } = await provider.embed(msg.model, msg.texts);
           return { type: 'done', dim, data };
         }
-        if (this.kind === 'rerank') return { type: 'done', scores: await provider.rerank(msg.model, msg.query, msg.passages) };
+        if (this.kind === 'rerank') return { type: 'done', scores: await provider.rerank(msg.model, msg.query, msg.passages, msg.maxLength) };
         throw new Error(`The ${this.kind} worker is not available in the Node benchmark`);
       })().then(reply, (e) => reply({ type: 'error', error: String(e?.message || e) }));
     }
