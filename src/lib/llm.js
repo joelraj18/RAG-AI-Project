@@ -11,11 +11,8 @@ export { PROVIDERS } from './providers.js';
 
 export const HF_MODELS = HF_CATALOGUE.map((m) => m.id);
 
-export const BROWSER_MODELS = [
-  { id: 'onnx-community/Qwen2.5-0.5B-Instruct', label: 'Qwen2.5 0.5B Instruct (~400 MB, fastest)' },
-  { id: 'onnx-community/Llama-3.2-1B-Instruct', label: 'Llama 3.2 1B Instruct (~1 GB)' },
-  { id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', label: 'SmolLM2 1.7B Instruct (~1.1 GB, WebGPU)' },
-];
+// In-browser model catalogue (with per-device dtype and download size) lives next to the worker client.
+export { BROWSER_MODELS } from './workers.js';
 
 export function providerLabel(s) {
   const p = PROVIDERS[s.provider];

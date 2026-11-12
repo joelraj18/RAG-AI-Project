@@ -7,23 +7,26 @@ let generator = null;
 let loaded = null;
 let device = 'wasm';
 
-async function load(model) {
+// default when the caller does not say (the catalogue in src/lib/workers.js does)
+const DTYPES = { webgpu: 'q4f16', wasm: 'q4' };
+
+async function load(model, dtypes = DTYPES) {
   if (generator && loaded === model) return;
   const rt = await runtime();
   device = rt.device;
   generator = await pipeline('text-generation', model, {
     device,
-    dtype: device === 'webgpu' ? 'q4f16' : 'q4',
+    dtype: dtypes[device] || DTYPES[device],
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   });
   loaded = model;
-  self.postMessage({ type: 'ready', ...rt, dtype: device === 'webgpu' ? 'q4f16' : 'q4' });
+  self.postMessage({ type: 'ready', ...rt, dtype: dtypes[device] || DTYPES[device] });
 }
 
 self.onmessage = async (e) => {
-  const { id, type, model, messages, maxTokens, temperature, topP } = e.data;
+  const { id, type, model, dtypes, messages, maxTokens, temperature, topP } = e.data;
   try {
-    await load(model);
+    await load(model, dtypes);
     if (type === 'load') return self.postMessage({ id, type: 'done' });
     let text = '';
     let count = 0;

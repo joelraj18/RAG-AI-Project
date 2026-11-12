@@ -106,6 +106,8 @@ export function loadSettings() {
     // purge secrets that older versions of the app may have saved
     if (SECRET_KEYS.some((k) => k in stored)) localStorage.setItem(KEY, JSON.stringify(persistable(stored)));
     const s = { ...DEFAULT_SETTINGS, ...persistable(stored) };
+    // the Llama 3.2 1B ONNX repository was renamed on the Hub
+    if (s.browserModel === 'onnx-community/Llama-3.2-1B-Instruct') s.browserModel = 'onnx-community/Llama-3.2-1B-Instruct-ONNX';
     // older versions called the custom OpenAI-compatible endpoint "openai"
     if (s.provider === 'openai' && !('apiModels' in stored)) s.provider = 'custom';
     return s;

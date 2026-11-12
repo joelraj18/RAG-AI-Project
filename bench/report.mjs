@@ -151,6 +151,25 @@ function speedTable(rows) {
   return [head, ...rows.map((r) => `| ${r.label} (${r.unit}) | ${r.fmt(r.before)} | **${r.fmt(r.after)}** | ${r.afterOff == null || Number.isNaN(r.afterOff) ? 'n/a' : r.fmt(r.afterOff)} | ${r.factor.toFixed(1)}× |`)].join('\n');
 }
 
+// ---------- plain-language summary (text by hand, numbers from the results) ----------
+const val = (rows, id, k = 'after') => rows.find((r) => r.id === id)?.[k];
+function plainTable(q, sp) {
+  const P = (v) => (v == null ? 'n/a' : `${(100 * v).toFixed(1)}%`);
+  const X = (id) => {
+    const r = sp.find((x) => x.id === id);
+    return r ? `${r.factor.toFixed(1)}×` : 'n/a';
+  };
+  const rows = [
+    ['Search understands word forms', "Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words.", 'A Porter stemmer, accent folding and hyphen handling make them match.', `Keyword search accuracy on SciFact ${P(val(q, 'kw', 'before'))} → **${P(val(q, 'kw'))}**`],
+    ['The answer comes first', 'Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle.', 'The most relevant sentence comes first, and rare question words count more than common ones.', `Answer in the first bullet ${P(val(q, 'first', 'before'))} → **${P(val(q, 'first'))}**`],
+    ['Wrong numbers and names are caught', 'The claim check only counted shared words, so a sentence with one wrong number or name still passed.', 'Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence.', `Swapped facts caught ${P(val(q, 'swap', 'before'))} → **${P(val(q, 'swap'))}**, true sentences passed ${P(val(q, 'true'))}`],
+    ['Local models use several cores', 'Embeddings, the reranker and the in-browser LLM ran on a single CPU thread.', 'Cross-origin isolation (Space headers, a small service worker on GitHub Pages) lets them use all cores but one.', `Indexing ${X('index')} faster, questions embedded ${X('query')} faster`],
+    ['Smaller downloads without a GPU', 'Every device downloaded the 26.9 MB WebAssembly runtime built for WebGPU support.', 'Devices without WebGPU get the plain 14.3 MB runtime.', '12.6 MB less to download on first use'],
+    ['In-browser answers read less', 'The in-browser model read every retrieved passage in full and then ran a second full pass as its own judge.', 'Passages are trimmed to their most relevant sentences, and the slow self-judge is off for in-browser models (the judge-free checks still run).', `Full answer ${X('answer')} faster, first token ${X('first')} faster`],
+  ];
+  return ['| What | Before | After | Measured |', '|---|---|---|---|', ...rows.map((r) => `| **${r[0]}** | ${r[1]} | ${r[2]} | ${r[3]} |`)].join('\n');
+}
+
 const q = qualityRows();
 const sp = speedRows();
 mkdirSync(join(ROOT, 'docs', 'benchmarks'), { recursive: true });
@@ -165,9 +184,11 @@ const block = [
   '<!-- bench:end -->',
 ].join('\n');
 const readme = join(ROOT, 'README.md');
-const text = readFileSync(readme, 'utf8');
-if (text.includes('<!-- bench:start -->')) writeFileSync(readme, text.replace(/<!-- bench:start -->[\s\S]*?<!-- bench:end -->/, block));
+let text = readFileSync(readme, 'utf8');
+if (text.includes('<!-- bench:start -->')) text = text.replace(/<!-- bench:start -->[\s\S]*?<!-- bench:end -->/, block);
 else console.log('README has no <!-- bench:start --> marker yet; block not inserted');
+if (q.length && sp.length && text.includes('<!-- plain:start -->')) text = text.replace(/<!-- plain:start -->[\s\S]*?<!-- plain:end -->/, `<!-- plain:start -->\n${plainTable(q, sp)}\n<!-- plain:end -->`);
+writeFileSync(readme, text);
 
 const summary = {
   generated: new Date().toISOString().slice(0, 10),

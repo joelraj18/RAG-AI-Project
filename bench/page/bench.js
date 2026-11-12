@@ -134,7 +134,7 @@ window.bench = {
     const t0 = performance.now();
     if (kind === 'rerank') await W.rerank('warm up', ['warm up']);
     else if (kind === 'embed') await W.embedTexts(model, ['warm up']);
-    else await client.call({ type: 'load', model });
+    else await client.call({ type: 'load', model, dtypes: W.browserModelInfo?.(model)?.dtype });
     return performance.now() - t0;
   },
 };
