@@ -23,3 +23,25 @@ describe('isolation service worker', () => {
     expect(wantsIsolationWorker({ ...base, optOut: true })).toBe(false);
   });
 });
+
+import { loadOnce } from '../../workers/once.js';
+
+describe('model loading in the workers', () => {
+  it('shares one load between concurrent requests and retries after a failure', async () => {
+    let calls = 0;
+    let fail = true;
+    const load = loadOnce(async (name) => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 5));
+      if (fail) throw new Error('offline');
+      return `${name} ready`;
+    });
+    await expect(Promise.all([load('a'), load('a')])).rejects.toThrow('offline');
+    expect(calls).toBe(1);
+    fail = false;
+    const [x, y] = await Promise.all([load('a'), load('a')]);
+    expect([x, y, calls]).toEqual(['a ready', 'a ready', 2]);
+    expect(await load('b')).toBe('b ready');
+    expect(calls).toBe(3);
+  });
+});

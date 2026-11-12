@@ -1,28 +1,24 @@
 import { AutoTokenizer, AutoModelForSequenceClassification } from '@huggingface/transformers';
 import { runtime } from './runtime.js';
+import { loadOnce } from './once.js';
 
 // Cross-encoder reranker: scores (query, passage) pairs jointly, which is more accurate
 // than comparing separately computed embeddings. Used on the top candidates only.
 
-let tokenizer = null;
-let model = null;
-let loaded = null;
-
-async function load(name) {
-  if (model && loaded === name) return;
+const load = loadOnce(async (name) => {
   const rt = await runtime();
-  const device = rt.device;
+  const dtype = rt.device === 'webgpu' ? 'fp32' : 'q8';
   const progress_callback = (p) => self.postMessage({ type: 'progress', progress: p });
-  tokenizer = await AutoTokenizer.from_pretrained(name, { progress_callback });
-  model = await AutoModelForSequenceClassification.from_pretrained(name, { device, dtype: device === 'webgpu' ? 'fp32' : 'q8', progress_callback });
-  loaded = name;
-  self.postMessage({ type: 'ready', ...rt, dtype: device === 'webgpu' ? 'fp32' : 'q8' });
-}
+  const tokenizer = await AutoTokenizer.from_pretrained(name, { progress_callback });
+  const model = await AutoModelForSequenceClassification.from_pretrained(name, { device: rt.device, dtype, progress_callback });
+  self.postMessage({ type: 'ready', ...rt, dtype });
+  return { tokenizer, model };
+});
 
 self.onmessage = async (e) => {
   const { id, model: name, query, passages, maxLength } = e.data;
   try {
-    await load(name);
+    const { tokenizer, model } = await load(name);
     const inputs = tokenizer(new Array(passages.length).fill(query), { text_pair: passages, padding: true, truncation: true, ...(maxLength ? { max_length: maxLength } : {}) });
     const { logits } = await model(inputs);
     const raw = Array.from(logits.data);

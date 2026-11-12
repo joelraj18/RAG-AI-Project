@@ -1,32 +1,29 @@
 import { pipeline, TextStreamer } from '@huggingface/transformers';
 import { runtime } from './runtime.js';
+import { loadOnce } from './once.js';
 
 // In-browser instruct LLM (transformers.js). Runs on WebGPU when available, WASM otherwise.
-
-let generator = null;
-let loaded = null;
-let device = 'wasm';
 
 // default when the caller does not say (the catalogue in src/lib/workers.js does)
 const DTYPES = { webgpu: 'q4f16', wasm: 'q4' };
 
-async function load(model, dtypes = DTYPES) {
-  if (generator && loaded === model) return;
+const loadModel = loadOnce(async (key, model, dtypes) => {
   const rt = await runtime();
-  device = rt.device;
-  generator = await pipeline('text-generation', model, {
-    device,
-    dtype: dtypes[device] || DTYPES[device],
+  const dtype = dtypes[rt.device] || DTYPES[rt.device];
+  const generator = await pipeline('text-generation', model, {
+    device: rt.device,
+    dtype,
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   });
-  loaded = model;
-  self.postMessage({ type: 'ready', ...rt, dtype: dtypes[device] || DTYPES[device] });
-}
+  self.postMessage({ type: 'ready', ...rt, dtype });
+  return { generator, device: rt.device };
+});
+const load = (model, dtypes = DTYPES) => loadModel(`${model} ${JSON.stringify(dtypes)}`, model, dtypes);
 
 self.onmessage = async (e) => {
   const { id, type, model, dtypes, messages, maxTokens, temperature, topP } = e.data;
   try {
-    await load(model, dtypes);
+    const { generator, device } = await load(model, dtypes);
     if (type === 'load') return self.postMessage({ id, type: 'done' });
     let text = '';
     let count = 0;
