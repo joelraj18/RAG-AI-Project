@@ -134,6 +134,8 @@ These ideas were measured on the tuning data and left out, so the app stays simp
   0.653 on SciFact) with slightly lower recall, so the simpler code stayed.
 - **Shorter answers without an LLM** (5 sentences instead of 8) were 22% shorter, but held the answer less often
   (84.4% against 85.9%).
+- **8-bit Qwen on CPU** (instead of 4-bit) wrote 2.1× faster and is a third smaller to download, but its correct short
+  answers fell from 67.5% to 32.5% on 40 SQuAD half A questions with the right paragraph given, so 4-bit stays.
 - **Letting the reranker set the order alone** raised right page first on SQuAD half A from 73.7% to 82.3%, but
   SciFact fell from 0.733 to 0.697. Combining both orders keeps most of the gain (80.3%) and almost all of SciFact
   (0.726), so that is what the reranker does now.
@@ -184,7 +186,7 @@ Free:
 | Provider | Setup | Data |
 |---|---|---|
 | **Extractive** (default) | none. Quotes the best sentences with citations; instant, but no LLM judge | stays on device |
-| **In-browser** | none (0.4 to 1.1 GB downloaded once); use WebGPU (Chrome, Edge) for usable speed | stays on device |
+| **In-browser** | none (0.5 to 1.7 GB downloaded once); use WebGPU (Chrome, Edge) for usable speed | stays on device |
 | **Hugging Face Inference** ⭐ | free token from <https://huggingface.co/settings/tokens> (enable *Inference Providers*) | excerpts sent to Hugging Face |
 | **Local or custom endpoint** | e.g. `OLLAMA_ORIGINS=* ollama serve`, then `ollama pull mistral:7b-instruct` | stays on device for `localhost`, otherwise sent to that server |
 
