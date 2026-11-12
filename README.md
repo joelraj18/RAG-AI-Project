@@ -106,10 +106,37 @@ measurements showed. Every number below comes from the same benchmark code run o
 <!-- plain:start -->
 <!-- plain:end -->
 
+Smaller fixes that are not timed above:
+
+- **Models load ahead of time.** Choosing the in-browser model, or opening a collection with embeddings, starts the
+  download in the background, so the first question no longer waits for it.
+- **Honest download sizes.** The model list shows what your device will fetch. Qwen2.5 0.5B said about 400 MB, but
+  without WebGPU it downloads 786 MB.
+- **Answer similarity measures the answer itself.** It used to embed the answer as if it were a question (bge-small
+  adds a search prefix to questions) and stored it in the question cache.
+- **Llama 3.2 1B** now points at its renamed repository instead of a redirect.
+
 ### Results
 
 <!-- bench:start -->
 <!-- bench:end -->
+
+### Tried, no gain
+
+These ideas were measured on the tuning data and left out, so the app stays simpler:
+
+- **A lighter stemmer** (plurals and a few endings only) scored about the same as Porter: 0.697 against 0.701 nDCG@10
+  on SciFact's training questions, and 80.6% against 79.9% right page first on SQuAD half A.
+- **Counting keyword search double in hybrid search** helped SQuAD half A (right page first 74.5% → 78.4%) but hurt
+  SciFact (0.744 → 0.734), so both searches still count the same.
+- **More candidates before fusion** (100 per search instead of 20) changed nothing (74.6% against 74.5%).
+- **Cutting MiniLM's input at 256 word pieces**, the length it was trained on, gave the same accuracy (0.654 against
+  0.653 on SciFact) with slightly lower recall, so the simpler code stayed.
+- **Shorter answers without an LLM** (5 sentences instead of 8) were 22% shorter, but held the answer less often
+  (84.4% against 85.9%).
+- **Letting the reranker set the order alone** raised right page first on SQuAD half A from 73.7% to 82.3%, but
+  SciFact fell from 0.733 to 0.697. Combining both orders keeps most of the gain (80.3%) and almost all of SciFact
+  (0.726), so that is what the reranker does now.
 
 ### How it was measured
 
@@ -310,6 +337,12 @@ One-time setup: *Settings → Pages → Build and deployment → Source: **GitHu
 One-time setup: add the repository secret `HF_TOKEN` (an HF token with write access) and the variable `HF_SPACE` (for
 example `your-name/rag-ai-studio`). To publish by hand:
 `npm run build && HF_TOKEN=hf_xxx HF_SPACE=you/rag-ai-studio python scripts/push_to_hf_space.py dist`.
+
+**Multi-threaded local models** need a cross-origin isolated page (the COOP and COEP headers). `npm run dev` and
+`npm run preview` send them. The Space sends them too, but only on its direct `*.static.hf.space` address; the copy
+embedded on huggingface.co is not isolated and runs the local models on one thread. GitHub Pages cannot send headers,
+so a small service worker (`public/coi-sw.js`) adds them to the site's own files from the next page load on. It never
+touches model downloads or LLM requests and caches nothing; open the site with `?coi=0` to remove it.
 
 ## Roadmap
 
