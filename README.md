@@ -122,6 +122,11 @@ Smaller fixes that are not timed above:
 
 ### Results
 
+How to read these: every quality number is a share of questions, sentences or claims, measured only on data that
+was never used for tuning. The search rows on SciFact and NFCorpus use nDCG@10, a 0 to 100% score of how high the relevant documents
+rank. **Bold** marks a result that is better with 95% confidence; the interval is in the last column. Speed is
+measured in headless Chromium without a GPU, so it shows the WebAssembly path every device can fall back to.
+
 <!-- bench:start -->
 <!-- bench:end -->
 
