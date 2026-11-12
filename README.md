@@ -381,7 +381,7 @@ src/
 | Vector search | Full sort of all scores per query | Bounded min-heap top-k; query embeddings cached |
 | Ingest | Cleaning, chunking and BM25 on the UI thread (freezes on big books) | In a Web Worker; BM25 uses compact typed arrays |
 | Page viewer | Re-parsed the whole PDF for every page | Open documents cached (LRU of 2) |
-| Deploy size | ~31 MB (unused 26 MB onnxruntime wasm bundled) | **4.5 MB** (wasm loaded from jsDelivr by transformers.js) |
+| Deploy size | ~31 MB (unused 26 MB onnxruntime wasm bundled) | **4.9 MB** (wasm loaded from jsDelivr by transformers.js) |
 | Chunk quality | No section context; TOC pages and duplicates indexed | Section-aware chunks, contextual headers for embeddings, TOC/duplicate filtering |
 | Judge cost | 2 LLM calls per answer | 1 combined call by default (strict 2-call mode optional) |
 | Scope | Medical-only prompts and demo | Any document; 6 presets; generic "Guide to RAG" demo |
