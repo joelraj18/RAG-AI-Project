@@ -177,7 +177,7 @@ describe('evaluation', () => {
     expect(resolveCitation({ name: 'Guide', page: 6 }, sources)).toMatchObject({ docId: 'g', page: 6, keys: ['g:4'] });
   });
   it('extractive answers are fully supported and highly confident', () => {
-    const q = 'What surgery treats appendicitis?';
+    const q = 'What is the standard treatment for appendicitis?';
     const ans = extractiveAnswer(q, sources.slice(0, 1));
     const h = heuristicEvaluation({ question: q, answer: ans.text, sources });
     expect(h.support.share).toBe(1);

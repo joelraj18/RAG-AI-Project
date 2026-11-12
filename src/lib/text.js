@@ -10,25 +10,122 @@ export const STOPWORDS = new Set(
   figure chapter page pdf one two use used using include includes including`.split(/\s+/)
 );
 
-/** Lower-case word tokens with light stemming (enough for BM25 + overlap metrics). */
+const WORD = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+const NON_ASCII = /[^\x00-\x7f]/;
+
+/**
+ * Lower-case, stemmed word tokens (used by BM25, claim support and extractive answers).
+ * Accents are folded (café -> cafe, ß -> ss), possessives dropped (McBurney's -> mcburney), and a
+ * hyphenated term is indexed both joined and as its parts (IL-6 -> il6, il, 6), so the spaced,
+ * joined and hyphenated spellings all match.
+ */
 export function tokenize(text) {
+  let t = String(text);
+  if (NON_ASCII.test(t)) t = t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\u00df/g, 'ss');
   const out = [];
-  const words = String(text).toLowerCase().match(/[a-z0-9]+(?:['-][a-z0-9]+)*/g) || [];
-  for (const w of words) {
-    if (w.length < 2 || STOPWORDS.has(w)) continue;
-    out.push(stem(w));
+  const add = (w) => {
+    if (w.length >= 2 && !STOPWORDS.has(w)) out.push(stem(w));
+  };
+  for (let w of t.toLowerCase().match(WORD) || []) {
+    if (w.includes("'") || w.includes('’')) w = w.replace(/['’]s$/, '').replace(/['’]/g, '');
+    if (w.includes('-')) {
+      const parts = w.split('-');
+      add(parts.join(''));
+      parts.forEach(add);
+    } else add(w);
   }
   return out;
 }
 
-/** Tiny suffix-stripping stemmer: maps "fractures/fractured/fracturing" -> "fractur". */
+const stems = new Map();
+/** Porter stemmer (M. F. Porter, 1980), memoised. Numbers are left as they are. */
 export function stem(w) {
-  if (w.length <= 4 || /^\d/.test(w)) return w;
-  return w
-    .replace(/(ational|ization|fulness|iveness)$/, '')
-    .replace(/(ies)$/, 'y')
-    .replace(/(ing|edly|ed|es|ly|ment|ness|s)$/, '')
-    .replace(/e$/, '');
+  if (w.length <= 2 || /^\d/.test(w)) return w;
+  let s = stems.get(w);
+  if (s === undefined) {
+    s = porter(w);
+    if (stems.size > 200000) stems.clear();
+    stems.set(w, s);
+  }
+  return s;
+}
+
+const isCons = (w, i) => {
+  const c = w[i];
+  if (c === 'a' || c === 'e' || c === 'i' || c === 'o' || c === 'u') return false;
+  return c === 'y' ? i === 0 || !isCons(w, i - 1) : true;
+};
+/** m: the number of vowel-consonant sequences in a stem. */
+function measure(s) {
+  let n = 0;
+  let i = 0;
+  while (i < s.length && isCons(s, i)) i++;
+  while (i < s.length) {
+    while (i < s.length && !isCons(s, i)) i++;
+    if (i >= s.length) break;
+    while (i < s.length && isCons(s, i)) i++;
+    n++;
+  }
+  return n;
+}
+const hasVowel = (s) => {
+  for (let i = 0; i < s.length; i++) if (!isCons(s, i)) return true;
+  return false;
+};
+const doubleCons = (s) => s.length >= 2 && s[s.length - 1] === s[s.length - 2] && isCons(s, s.length - 1);
+const cvc = (s) => {
+  const n = s.length;
+  return n >= 3 && isCons(s, n - 1) && !isCons(s, n - 2) && isCons(s, n - 3) && !'wxy'.includes(s[n - 1]);
+};
+
+const STEP2 = [['ational', 'ate'], ['tional', 'tion'], ['enci', 'ence'], ['anci', 'ance'], ['izer', 'ize'], ['abli', 'able'], ['alli', 'al'], ['entli', 'ent'], ['eli', 'e'], ['ousli', 'ous'], ['ization', 'ize'], ['ation', 'ate'], ['ator', 'ate'], ['alism', 'al'], ['iveness', 'ive'], ['fulness', 'ful'], ['ousness', 'ous'], ['aliti', 'al'], ['iviti', 'ive'], ['biliti', 'ble']];
+const STEP3 = [['icate', 'ic'], ['ative', ''], ['alize', 'al'], ['iciti', 'ic'], ['ical', 'ic'], ['ful', ''], ['ness', '']];
+const STEP4 = ['al', 'ance', 'ence', 'er', 'ic', 'able', 'ible', 'ant', 'ement', 'ment', 'ent', 'ion', 'ou', 'ism', 'ate', 'iti', 'ous', 'ive', 'ize'];
+
+/** The first listed suffix that matches decides (as in Porter's reference implementation). */
+function replaceSuffix(w, rules, minM) {
+  let best = null;
+  for (const r of rules) if (w.endsWith(r[0]) && (!best || r[0].length > best[0].length)) best = r;
+  if (!best) return w;
+  const stemPart = w.slice(0, -best[0].length);
+  return measure(stemPart) > minM ? stemPart + best[1] : w;
+}
+
+function porter(word) {
+  let w = word;
+  // step 1a: plurals
+  if (w.endsWith('sses')) w = w.slice(0, -2);
+  else if (w.endsWith('ies')) w = w.slice(0, -2);
+  else if (!w.endsWith('ss') && w.endsWith('s')) w = w.slice(0, -1);
+  // step 1b: -eed, -ed, -ing
+  if (w.endsWith('eed')) {
+    if (measure(w.slice(0, -3)) > 0) w = w.slice(0, -1);
+  } else {
+    const suf = w.endsWith('ed') ? 'ed' : w.endsWith('ing') ? 'ing' : null;
+    if (suf && hasVowel(w.slice(0, -suf.length))) {
+      w = w.slice(0, -suf.length);
+      if (w.endsWith('at') || w.endsWith('bl') || w.endsWith('iz')) w += 'e';
+      else if (doubleCons(w) && !/[lsz]$/.test(w)) w = w.slice(0, -1);
+      else if (measure(w) === 1 && cvc(w)) w += 'e';
+    }
+  }
+  // step 1c: y -> i
+  if (w.endsWith('y') && hasVowel(w.slice(0, -1))) w = `${w.slice(0, -1)}i`;
+  // steps 2-4: derivational suffixes
+  w = replaceSuffix(w, STEP2, 0);
+  w = replaceSuffix(w, STEP3, 0);
+  for (const suf of STEP4.filter((x) => w.endsWith(x)).sort((a, b) => b.length - a.length).slice(0, 1)) {
+    const stemPart = w.slice(0, -suf.length);
+    if (measure(stemPart) > 1 && (suf !== 'ion' || /[st]$/.test(stemPart))) w = stemPart;
+  }
+  // step 5: final -e and -ll
+  if (w.endsWith('e')) {
+    const stemPart = w.slice(0, -1);
+    const m = measure(stemPart);
+    if (m > 1 || (m === 1 && !cvc(stemPart))) w = stemPart;
+  }
+  if (w.endsWith('ll') && measure(w) > 1) w = w.slice(0, -1);
+  return w;
 }
 
 /** Rough token estimate compatible with cl100k for English/medical prose (~4 chars per token). */
