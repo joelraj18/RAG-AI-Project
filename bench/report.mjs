@@ -182,14 +182,19 @@ function plainTable(q, sp) {
     const r = sp.find((x) => x.id === id);
     return r ? `${r.factor.toFixed(1)}×` : 'n/a';
   };
+  // new code against old code, both on one thread: what the code changes give without isolation
+  const oneThread = (id) => {
+    const r = sp.find((x) => x.id === id);
+    return r?.afterOff ? `${(r.higher ? r.afterOff / r.before : r.before / r.afterOff).toFixed(1)}×` : 'n/a';
+  };
   const rows = [
     ['Search understands word forms', "Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words.", 'A Porter stemmer, accent folding and hyphen handling make them match.', `Keyword search accuracy on SciFact ${P(val(q, 'kw', 'before'))} → **${P(val(q, 'kw'))}**, on unseen NFCorpus ${P(val(q, 'nfKw', 'before'))} → ${P(val(q, 'nfKw'))}`],
     ['The answer comes first', 'Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle.', 'The most relevant sentence comes first, and rare question words count more than common ones.', `Answer in the first bullet ${P(val(q, 'first', 'before'))} → **${P(val(q, 'first'))}**`],
     ['Wrong numbers and names are caught', 'The claim check only counted shared words, so a sentence with one wrong number or name still passed.', 'Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence.', `Swapped facts caught ${P(val(q, 'swap', 'before'))} → **${P(val(q, 'swap'))}**, true sentences passed ${P(val(q, 'true'))}. On real science claims it is stricter both ways: contradicted claims pass ${P(val(q, 'sciCon', 'before'))} → ${P(val(q, 'sciCon'))}, supported ones ${P(val(q, 'sciSup', 'before'))} → ${P(val(q, 'sciSup'))}`],
     ['The reranker, measured on both kinds of text', 'It replaced the search order, which helped everyday questions but made scientific ones worse.', 'Its order is now combined with the search order. It stays off by default and is part of the Best quality profile, because on scientific text search alone still scores higher.', `SciFact with reranker ${P(val(q, 'rr', 'before'))} → **${P(val(q, 'rr'))}** (search alone ${P(val(q, 'hyb'))}); SQuAD half A right page first 73.7% → 80.3% with it (tuning data)`],
-    ['Local models use several cores', 'Embeddings, the reranker and the in-browser LLM ran on a single CPU thread.', 'Cross-origin isolation (Space headers, a small service worker on GitHub Pages) lets them use every core, and documents are embedded in batches of similar length so less work goes to padding.', `Indexing ${X('index')} faster, questions embedded ${X('query')} faster`],
+    ['Local models use several cores', 'Embeddings, the reranker and the in-browser LLM ran on a single CPU thread.', 'Cross-origin isolation (Space headers, a small service worker on GitHub Pages) lets them use every core, and documents are embedded in batches of similar length so less work goes to padding.', `Indexing ${X('index')} faster, questions embedded ${X('query')} faster, the in-browser model's first token ${X('first')} sooner`],
     ['Smaller downloads without a GPU', 'Every device downloaded the 26.9 MB WebAssembly runtime built for WebGPU support.', 'Devices without WebGPU get the plain 14.3 MB runtime.', '12.6 MB less to download on first use'],
-    ['In-browser answers read less', 'The in-browser model read every retrieved passage in full and then ran a second full pass as its own judge.', 'Passages are trimmed to their most relevant sentences, and the slow self-judge is off by default when you pick the in-browser model (the checks that need no LLM still run).', `Full answer ${X('answer')} faster, first token ${X('first')} faster`],
+    ['In-browser answers read less', 'The in-browser model read every retrieved passage in full and then ran a second full pass as its own judge.', 'Passages are trimmed to their most relevant sentences, and the slow self-judge is off by default when you pick the in-browser model (the checks that need no LLM still run).', `Full answer ${X('answer')} faster with every core, and ${oneThread('answer')} faster on one thread`],
   ];
   return ['| What | Before | After | Measured |', '|---|---|---|---|', ...rows.map((r) => `| **${r[0]}** | ${r[1]} | ${r[2]} | ${r[3]} |`)].join('\n');
 }
