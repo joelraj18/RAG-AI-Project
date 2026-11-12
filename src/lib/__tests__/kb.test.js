@@ -11,3 +11,15 @@ describe('embedding batch plan', () => {
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 });
+
+import { wantsIsolationWorker } from '../isolation.js';
+
+describe('isolation service worker', () => {
+  const base = { prod: true, isolated: false, hasServiceWorker: true, secure: true, topLevel: true, optOut: false };
+  it('registers only for a production, top-level, not yet isolated page', () => {
+    expect(wantsIsolationWorker(base)).toBe(true);
+    for (const k of ['prod', 'hasServiceWorker', 'secure', 'topLevel']) expect(wantsIsolationWorker({ ...base, [k]: false })).toBe(false);
+    expect(wantsIsolationWorker({ ...base, isolated: true })).toBe(false);
+    expect(wantsIsolationWorker({ ...base, optOut: true })).toBe(false);
+  });
+});
