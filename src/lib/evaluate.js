@@ -116,18 +116,65 @@ function isClaim(s) {
   return tokenize(plain).length >= 2;
 }
 
+// ---------- fact and contradiction checks used by claim support ----------
+
+const fold = (t) => String(t).normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+const NUMBER = /\d+(?:[.,]\d+)*/g;
+/** Numbers in a text, normalised ("1,000" -> "1000"). */
+export const numbersOf = (t) => (fold(t).match(NUMBER) || []).map((n) => n.replace(/,(?=\d{3}(?!\d))/g, ''));
+const NAME_STOP = new Set('the a an this that these those it its in on at for and or but if when while after before during with by from to of as is are was were be sources source note yes no however also both each such'.split(' '));
 /**
- * For each claim sentence: the share of its content words found in the best-matching
- * retrieved chunk. Fast, reproducible and free of the LLM judge's self-evaluation bias.
+ * Names and acronyms in a claim: capitalised words that do not start a sentence, and all-caps terms.
+ * A capitalised first word is skipped because it cannot be told apart from an ordinary sentence opener.
  */
-export function supportAnalysis(answer, sources, threshold = 0.6) {
+export function namesOf(text) {
+  const words = fold(text).replace(/[*_`#>"“”()[\]]/g, ' ').split(/\s+/).filter(Boolean);
+  const out = new Set();
+  words.forEach((w, i) => {
+    const prev = words[i - 1];
+    const start = i === 0 || /[.:;!?]$/.test(prev) || /^(?:[-•]|\d+[.)])$/.test(prev);
+    // segments split the same way as the source text (Tesla's -> tesla, Mercedes-Benz -> mercedes, benz)
+    const segs = w.replace(/['’]s\b/gi, '').match(/[\p{L}\p{N}]+/gu) || [];
+    segs.forEach((seg, j) => {
+      const acronym = /^[A-Z][A-Z0-9]+$/.test(seg);
+      const proper = /^[A-Z][a-z]/.test(seg);
+      if (seg.length < 3 || NAME_STOP.has(seg.toLowerCase())) return;
+      if (acronym || (proper && !(start && j === 0))) out.add(seg.toLowerCase());
+    });
+  });
+  return [...out];
+}
+const NEGATION = /\b(?:not|no|never|none|neither|nor|cannot|without|fails?|failed|lacks?|lacking|absence|absent|unable)\b|n't\b/i;
+const UP = /\b(?:increas\w*|higher|greater|more|rais\w*|elevat\w*|enhanc\w*|improv\w*|promot\w*|activat\w*|induc\w*|stimulat\w*)\b/i;
+const DOWN = /\b(?:decreas\w*|lower|less|fewer|reduc\w*|diminish\w*|inhibit\w*|suppress\w*|impair\w*|worsen\w*|attenuat\w*)\b/i;
+const direction = (t) => {
+  const u = UP.test(t);
+  const d = DOWN.test(t);
+  return u && !d ? 1 : d && !u ? -1 : 0;
+};
+
+/**
+ * For each claim sentence: the share of its content words found in the best-matching retrieved
+ * chunk, then two checks that word overlap alone misses (a sentence with one wrong number still
+ * shares about 90% of its words with the source):
+ *  - facts: numbers and names in the claim must appear in the retrieved text;
+ *  - conflicts: negation or direction ("increases" vs "decreases") must agree with the source
+ *    sentence that matches the claim best.
+ * Fast, reproducible and free of the LLM judge's self-evaluation bias.
+ */
+export function supportAnalysis(answer, sources, threshold = 0.6, { facts = true, conflicts = true } = {}) {
   const singleDoc = new Set(sources.map((s) => s.docId)).size <= 1;
   const src = sources.map((s) => ({ ...s, set: new Set(tokenize(s.text || '')) }));
   const all = new Set(src.flatMap((s) => [...s.set]));
+  const pooledText = fold(src.map((s) => s.text || '').join(' '));
+  const srcNumbers = new Set(numbersOf(pooledText));
+  const srcWords = new Set(pooledText.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  let sentences = null; // split lazily: only needed when a claim could conflict
   const rows = splitSentences(answer)
     .filter(isClaim)
     .map((s) => {
-      const toks = [...new Set(tokenize(s.replace(CITE_STRIP, '')))];
+      const plainText = s.replace(CITE_STRIP, '');
+      const toks = [...new Set(tokenize(plainText))];
       const ratioIn = (x) => toks.filter((t) => x.set.has(t)).length / (toks.length || 1);
       let best = { ratio: 0 };
       for (const x of src) {
@@ -141,16 +188,36 @@ export function supportAnalysis(answer, sources, threshold = 0.6) {
       const cited = src.filter((x) => cites.some((c) => citeMatches(c, x, singleDoc)));
       const citedRatio = cited.length ? Math.max(...cited.map(ratioIn)) : null;
       const misattributed = citedRatio != null && citedRatio < threshold / 2 && best.ratio >= threshold;
+      let status = ratio >= threshold ? 'supported' : ratio >= threshold / 2 ? 'partial' : 'unsupported';
+      const missing = facts ? [...numbersOf(plainText).filter((n) => !srcNumbers.has(n)), ...namesOf(plainText).filter((n) => !srcWords.has(n))] : [];
+      let conflict = null;
+      if (conflicts && status === 'supported') {
+        sentences ||= src.flatMap((x) => splitSentences(x.text || '').map((t) => ({ t, set: new Set(tokenize(t)) })));
+        let match = null;
+        let top = 0;
+        for (const x of sentences) {
+          const r = ratioIn(x);
+          if (r > top) [top, match] = [r, x.t];
+        }
+        if (match && top >= 0.5) {
+          if (NEGATION.test(plainText) !== NEGATION.test(match)) conflict = 'negation';
+          else if (direction(plainText) * direction(match) < 0) conflict = 'direction';
+        }
+      }
+      if (missing.length >= 2) status = 'unsupported';
+      else if ((missing.length === 1 || conflict) && status === 'supported') status = 'partial';
       return {
         text: s,
-        plain: s.replace(CITE_STRIP, '').replace(/\s+([.,;])/g, '$1').trim(),
+        plain: plainText.replace(/\s+([.,;])/g, '$1').trim(),
         ratio,
         page: best.page,
         docName: best.docName,
         key: best.key,
         citedRatio,
         misattributed,
-        status: ratio >= threshold ? 'supported' : ratio >= threshold / 2 ? 'partial' : 'unsupported',
+        missing,
+        conflict,
+        status,
       };
     });
   const supported = rows.filter((r) => r.status === 'supported').length;

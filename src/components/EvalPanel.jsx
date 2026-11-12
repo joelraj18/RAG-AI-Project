@@ -318,6 +318,8 @@ function EvaluationTab({ rec, onOpen }) {
               <div key={i} className={cx('rounded-r-lg border-l-4 px-3 py-1.5 text-sm', STATUS[r.status])}>
                 <span>{r.plain ?? r.text}</span>
                 {r.misattributed && <Badge color="red" className="ml-2">cited source does not contain this</Badge>}
+                {r.missing?.length > 0 && <Badge color="amber" className="ml-2">not in the sources: {r.missing.slice(0, 3).join(', ')}</Badge>}
+                {r.conflict && <Badge color="amber" className="ml-2">{r.conflict === 'negation' ? 'negation differs from the source' : 'direction differs from the source'}</Badge>}
                 <span className="ml-2 text-xs whitespace-nowrap text-slate-500">
                   {Math.round(r.ratio * 100)}%{' '}
                   {r.page != null && (

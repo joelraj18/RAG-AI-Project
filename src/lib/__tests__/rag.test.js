@@ -166,6 +166,17 @@ describe('evaluation', () => {
     expect(c.precision).toBe(0.5);
     expect(citationCheck('Give fluids within 3 hours [Handbook p. 3]. Start antibiotics early [Handbook p. 3]', sources).coverage).toBe(1);
   });
+  it('flags claims whose numbers or names are not in the sources, and reversed meaning', () => {
+    const src = [{ key: 'm:2', docId: 'm', docName: 'Handbook', page: 2, text: 'Give 30 mL/kg of IV crystalloid within the first 3 hours. Norepinephrine is the first-line vasopressor. Steroids do not improve survival in this group.' }];
+    const rows = (a) => supportAnalysis(a, src).rows;
+    expect(rows('Give 30 mL/kg of IV crystalloid within the first 3 hours [Handbook p. 2]')[0].status).toBe('supported');
+    const wrongNumber = rows('Give 30 mL/kg of IV crystalloid within the first 6 hours [Handbook p. 2]')[0];
+    expect(wrongNumber.status).toBe('partial');
+    expect(wrongNumber.missing).toEqual(['6']);
+    expect(rows('The first-line vasopressor is Vasopressin [Handbook p. 2]')[0].missing).toEqual(['vasopressin']);
+    expect(rows('Steroids improve survival in this group [Handbook p. 2]')[0].conflict).toBe('negation');
+    expect(rows("The lab used Tesla's coil and a Mercedes-Benz car [Handbook p. 2]")[0].missing).toEqual(['tesla', 'mercedes', 'benz']);
+  });
   it('detects claims that cite the wrong passage', () => {
     const a = supportAnalysis('- Hybrid search merges BM25 and semantic rankings with Reciprocal Rank Fusion [Handbook p. 3]', sources);
     expect(a.rows[0].status).toBe('supported');

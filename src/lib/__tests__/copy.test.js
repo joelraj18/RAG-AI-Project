@@ -18,6 +18,11 @@ describe('copy style', () => {
     );
     expect(bad).toEqual([]);
   });
+  it('keeps combining marks out of source files (they must be written as escapes)', () => {
+    const files = walk(join(root, 'src')).filter((f) => /\.jsx?$/.test(f));
+    const bad = files.filter((f) => /[\u0300-\u036f]/.test(readFileSync(f, 'utf8')));
+    expect(bad).toEqual([]);
+  });
   it('drops a trailing full stop from headings', () => {
     expect(cleanHeading('Your library.')).toBe('Your library');
     expect(cleanHeading('Wait...')).toBe('Wait...');

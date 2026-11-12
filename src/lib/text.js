@@ -11,7 +11,7 @@ export const STOPWORDS = new Set(
 );
 
 const WORD = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
-const NON_ASCII = /[^\x00-\x7f]/;
+const NON_ASCII = /[\u0080-\uffff]/;
 
 /**
  * Lower-case, stemmed word tokens (used by BM25, claim support and extractive answers).
