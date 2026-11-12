@@ -41,6 +41,6 @@ export function claimsSuite(E, squad, scifactClaims, { split = 'B', claimsSplit 
     split,
     claimsSplit,
     squad: { pairs: pairs.length, truePass: mean(truePass), swapCaught: mean(caught), numbersCaught: byKind('number'), namesCaught: byKind('name'), per: { truePass, caught }, ids: pairs.map((p) => p.id) },
-    scifact: { supported: sup.length, contradicted: con.length, supportedPass: mean(sup), contradictedPass: mean(con), per: { pass: sciPass }, ids: sci.map((c) => c.id) },
+    scifact: { supported: sup.length, contradicted: con.length, supportedPass: mean(sup), contradictedPass: mean(con), per: { pass: sciPass, label: sci.map((c) => (c.label === 'SUPPORT' ? 'S' : 'C')) }, ids: sci.map((c) => c.id) },
   };
 }
