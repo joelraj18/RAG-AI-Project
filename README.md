@@ -130,6 +130,13 @@ measured in headless Chromium without a GPU, so it shows the WebAssembly path ev
 <!-- bench:start -->
 <!-- bench:end -->
 
+The speed columns: **as served** means how each version reaches users. The old site was not cross-origin isolated, so
+its models ran on one thread; the new one is isolated through the Space headers or the service worker. **Before,
+isolated** is the old code with the new headers (ONNX Runtime then picks 2 threads on this machine), and **After, one
+thread** is the new code where isolation is not possible, such as the copy of the Space embedded on huggingface.co.
+Full answers also differ in their in-browser defaults: the old ones judged every answer with a second LLM pass and
+allowed 512 new tokens, the new ones skip that pass, allow 320 and trim the context.
+
 ### Tried, no gain
 
 These ideas were measured on the tuning data and left out, so the app stays simpler:
@@ -162,6 +169,7 @@ These ideas were measured on the tuning data and left out, so the app stays simp
     articles (643 pages, 1,413 chunks) through the app's own pipeline, with 10,570 questions whose answer page is known.
   - [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/) (medical, 3,633 documents, 323 test questions)
     as a final check that was never used while tuning.
+  - Each dataset keeps its own licence; see the linked pages.
 - **No tuning on the reported data.** Every setting was chosen on SciFact's training questions, the SciFact training
   claims and one half of the SQuAD questions (split by a hash of the question id). The tables report only the other
   half and SciFact's test questions. One early prototype of the tokenizer was looked at on SciFact test before this
@@ -177,13 +185,19 @@ These ideas were measured on the tuning data and left out, so the app stays simp
 - **Thread count.** Chosen by measurement on the test machine: 4 threads beat 3 and 2 both for embeddings (8.7, 7.0 and
   5.0 passages per second) and for the in-browser LLM (3.0, 2.5 and 1.8 tokens per second), so the workers use every
   core (up to 8).
-- **Hardware.** A 4 vCPU cloud machine with 15 GB of memory and no GPU. On a phone or a fast laptop the absolute
-  numbers will differ; the before and after ratios are what to compare.
+- **Hardware.** A 4 vCPU cloud machine (Intel Xeon at 2.3 GHz) with 15 GB of memory and no GPU. On a phone or a
+  fast laptop the absolute numbers will differ; the before and after ratios are what to compare.
+- **Caveats.** SQuAD-style Wikipedia questions appear in the training data of many embedding models, so the absolute
+  SQuAD numbers flatter semantic search; both versions use the same models, so the comparison is fair. The swapped
+  facts are made by changing one number or name in a true sentence, which is easier to catch than the mistakes a real
+  model makes; the SciFact claims rows show how the check does on claims written by people. In-browser answers were
+  only spot-checked: the expected answer appeared in 2 of 8 answers both before and after.
 - **Not measured here:** Ollama and other local servers (the compact context applies to them, but none could run in the
   test machine), WebGPU, and cloud LLM answers.
 
-Reproduce with `npm run bench` (needs `npx playwright install chromium` once and about 2 GB of downloads), then
-`npm run bench:report` to rebuild these tables and charts.
+Reproduce with `npm run bench` (needs `npx playwright-core install chromium` once, and about 1.1 GB of downloads,
+mostly the in-browser model), then `npm run bench:report` to rebuild these tables, the charts and the Learn page
+card. Results land in `bench/results/`, one file per suite, so an interrupted run picks up where it stopped.
 
 ## Which options should I choose?
 
