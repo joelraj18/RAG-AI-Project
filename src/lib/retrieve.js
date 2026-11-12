@@ -19,8 +19,10 @@ export async function retrieve(sets, query, opts = {}) {
   const { mode = 'hybrid', k = 4, fetchK = 20, lambda = 0.5, useRerank = false, neighbors = false, contextBudget = 1800, semanticQuery } = opts;
   // pool: candidates per list before fusion; weights: [semantic, keyword] list weights in RRF;
   // rerankTop / rerankFuse / rerankMaxLength: how many candidates the cross-encoder scores, whether
-  // its order is fused with the first-stage order, and its input length
-  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = false, rerankMaxLength } = opts;
+  // its order is fused with the first-stage order, and its input length. Fusing is the default:
+  // the cross-encoder (trained on web search) helps on everyday questions but hurt scientific
+  // text when it replaced the order outright (see the README's performance section).
+  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = true, rerankMaxLength } = opts;
   const t = { queryEmbed: 0, search: 0, rerank: 0, expand: 0 };
   const pool = opts.pool ?? Math.max(fetchK, k * 4);
 
