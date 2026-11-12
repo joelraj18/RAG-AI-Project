@@ -67,17 +67,23 @@ function qualityRows() {
   }).filter(Boolean);
 }
 
+// before = the old site as served (not isolated, one thread); after = the new site, isolated.
+// The other two cells separate the effect of the headers from the effect of the code changes.
 function speedRows() {
   const before = B('speed-off')?.result;
   const after = A('speed-on')?.result;
+  const beforeOn = B('speed-on')?.result;
   const afterOff = A('speed-off')?.result;
   if (!before || !after) return [];
+  const get = (m, r) => {
+    const v = r ? m.get(r) : null;
+    return v == null || Number.isNaN(v) ? null : v;
+  };
   return SPEED.map((m) => {
-    const b = m.get(before);
-    const a = m.get(after);
-    const o = afterOff ? m.get(afterOff) : null;
-    if (b == null || a == null || Number.isNaN(b) || Number.isNaN(a)) return null;
-    return { ...m, before: b, after: a, afterOff: o, factor: m.higher ? a / b : b / a };
+    const b = get(m, before);
+    const a = get(m, after);
+    if (b == null || a == null) return null;
+    return { ...m, before: b, after: a, beforeOn: get(m, beforeOn), afterOff: get(m, afterOff), factor: m.higher ? a / b : b / a };
   }).filter(Boolean);
 }
 
@@ -162,8 +168,9 @@ function qualityTable(rows) {
   return [head, ...rows.map((r) => `| ${r.label} (${r.note}) | ${pct(r.before)} | ${after(r)} | ${pts(r.ci.delta)} pts (${pts(r.ci.lo)} to ${pts(r.ci.hi)}) |`)].join('\n');
 }
 function speedTable(rows) {
-  const head = '| What we timed | Before (1 thread) | After (isolated) | After, not isolated | Faster by |\n|---|---|---|---|---|';
-  return [head, ...rows.map((r) => `| ${r.label} (${r.unit}) | ${r.fmt(r.before)} | **${r.fmt(r.after)}** | ${r.afterOff == null || Number.isNaN(r.afterOff) ? 'n/a' : r.fmt(r.afterOff)} | ${r.factor.toFixed(1)}× |`)].join('\n');
+  const head = '| What we timed | Before, one thread (as served) | Before, isolated | After, one thread | After, isolated (as served) | Faster by |\n|---|---|---|---|---|---|';
+  const cell = (r, v) => (v == null ? 'n/a' : r.fmt(v));
+  return [head, ...rows.map((r) => `| ${r.label} (${r.unit}) | ${cell(r, r.before)} | ${cell(r, r.beforeOn)} | ${cell(r, r.afterOff)} | **${cell(r, r.after)}** | ${r.factor.toFixed(1)}× |`)].join('\n');
 }
 
 // ---------- plain-language summary (text by hand, numbers from the results) ----------
