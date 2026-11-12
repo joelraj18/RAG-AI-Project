@@ -159,6 +159,9 @@ These ideas were measured on the tuning data and left out, so the app stays simp
   Chromium (WebAssembly, no GPU), served from a local mirror of the model files.
 - **Uncertainty.** Changes in quality come with a 95% confidence interval from a paired bootstrap over the questions.
   Speed is the median of repeated runs after a warm-up, with the old and new builds run in turn.
+- **Thread count.** Chosen by measurement on the test machine: 4 threads beat 3 and 2 both for embeddings (8.7, 7.0 and
+  5.0 passages per second) and for the in-browser LLM (3.0, 2.5 and 1.8 tokens per second), so the workers use every
+  core (up to 8).
 - **Hardware.** A 4 vCPU cloud machine with 15 GB of memory and no GPU. On a phone or a fast laptop the absolute
   numbers will differ; the before and after ratios are what to compare.
 - **Not measured here:** Ollama and other local servers (the compact context applies to them, but none could run in the
