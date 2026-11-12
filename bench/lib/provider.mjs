@@ -38,8 +38,12 @@ export class Provider {
     this.info = { embed: {}, rerank: {} };
   }
 
-  async start() {
-    if (this.pages) return this.pages;
+  start() {
+    this.starting ||= this.launchPages();
+    return this.starting;
+  }
+
+  async launchPages() {
     const ort = ortInfo(this.tree);
     this.mirror = await startMirror({ cacheDir: CACHE, ortDir: ort.dir, ortVersion: ort.version });
     this.outDir = await buildTree(this.tree);
@@ -67,15 +71,20 @@ export class Provider {
     return results;
   }
 
-  async embedHandle(model) {
-    if (this.handles.has(`e:${model}`)) return this.handles.get(`e:${model}`);
+  embedHandle(model) {
+    // the promise is cached, so concurrent first calls share one store (two stores on the same
+    // files would each keep their own row count and corrupt the index)
+    if (!this.handles.has(`e:${model}`)) this.handles.set(`e:${model}`, this.openEmbed(model));
+    return this.handles.get(`e:${model}`);
+  }
+
+  async openEmbed(model) {
     const [pg] = await this.start();
     const r = await pg.call('embed', model, PROBES);
     const ns = namespaceFor(join(CACHE, 'vec', 'embed', slug(model)), rows(decodeF32(r.b64), r.dim), (a, x) => cos(a, x) > 0.99999);
     const h = { model, dim: r.dim, store: new VectorStore(ns.dir, r.dim), ns: ns.id };
     this.info.embed[model] = { namespace: ns.id, cached: h.store.rows };
     this.log(`embed ${model}: cache namespace ${ns.id} (${h.store.rows} vectors cached)`);
-    this.handles.set(`e:${model}`, h);
     return h;
   }
 
@@ -109,8 +118,12 @@ export class Provider {
     return { dim: h.dim, data: out };
   }
 
-  async rerankHandle(model) {
-    if (this.handles.has(`r:${model}`)) return this.handles.get(`r:${model}`);
+  rerankHandle(model) {
+    if (!this.handles.has(`r:${model}`)) this.handles.set(`r:${model}`, this.openRerank(model));
+    return this.handles.get(`r:${model}`);
+  }
+
+  async openRerank(model) {
     const [pg] = await this.start();
     const ref = [];
     for (const [q, p] of RERANK_PROBES) ref.push((await pg.call('rerank', q, [p])).scores);
@@ -118,7 +131,6 @@ export class Provider {
     const h = { model, store: new VectorStore(ns.dir, 1), ns: ns.id };
     this.info.rerank[model] = { namespace: ns.id, cached: h.store.rows };
     this.log(`rerank ${model}: cache namespace ${ns.id} (${h.store.rows} scores cached)`);
-    this.handles.set(`r:${model}`, h);
     return h;
   }
 
