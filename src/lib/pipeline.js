@@ -1,4 +1,5 @@
 import { retrieve, formatContext, contextTokens, sourceLabel } from './retrieve.js';
+import { globalStats } from './bm25.js';
 import { generate, extractiveAnswer } from './llm.js';
 import { heuristicEvaluation, parseScore, parseJustification, parseCombinedJudge, confidence } from './evaluate.js';
 import {
@@ -83,6 +84,12 @@ async function llmText(settings, system, user, maxTokens, signal, purpose = 'oth
     signal,
   });
   return r.text.trim();
+}
+
+/** Rarity weight of each question word across the documents being searched (BM25 statistics). */
+export function collectionIdf(sets, question) {
+  const { N, df } = globalStats(sets.map((s) => s.kb.bm25), question);
+  return new Map([...df].map(([t, n]) => [t, Math.log(1 + (N - n + 0.5) / (n + 0.5))]));
 }
 
 export async function judge(settings, { question, context, answer, signal }) {
@@ -203,7 +210,7 @@ export async function runQuestion({ question, sets, settings: base, history = []
     const tGen = performance.now();
     let g;
     if (!llm) {
-      g = extractiveAnswer(question, r.sources);
+      g = extractiveAnswer(question, r.sources, { idf: collectionIdf(sets, question) });
       rec.answer = g.text;
     } else {
       const messages = buildMessages(settings, docNames, r.sources, question, history, c.vanilla);

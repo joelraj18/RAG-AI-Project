@@ -184,6 +184,15 @@ describe('evaluation', () => {
     expect(h.citations.precision).toBe(1);
     expect(confidence({ heuristic: h }).level).toBe('High');
   });
+  it('extractive answers put the most relevant sentence first, weighting rare words', () => {
+    const src = [
+      { key: 'm:2', docId: 'm', docName: 'Handbook', page: 2, score: 1, text: 'Septic shock is common in the intensive care unit and septic shock needs close monitoring of the patient. Norepinephrine is the first-line vasopressor when hypotension persists after fluids.' },
+    ];
+    const idf = new Map([['septic', 0.4], ['shock', 0.4], ['vasopressor', 3.5], ['firstlin', 2.5], ['first', 1], ['line', 1]]);
+    const a = extractiveAnswer('Which vasopressor is first-line for septic shock?', src, { idf });
+    const bullets = a.text.split('\n').filter((l) => l.startsWith('- '));
+    expect(bullets[0]).toMatch(/Norepinephrine/);
+  });
   it('computes retrieval accuracy (hit, recall, MRR)', () => {
     const ranked = [
       { docId: 'm', docName: 'Handbook', page: 2 },

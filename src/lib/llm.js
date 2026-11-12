@@ -261,12 +261,17 @@ async function localGenerate(settings, { messages, maxTokens, temperature, topP,
 }
 
 /**
- * Extractive answer: no LLM. Picks the sentences from the retrieved chunks that best
- * cover the question, removes near-duplicates and cites each one. 100% grounded by design.
+ * Extractive answer: no LLM. Picks the sentences from the retrieved chunks that best cover the
+ * question, removes near-duplicates and cites each one. 100% grounded by design.
+ * Question words are weighted by how rare they are in the collection (`idf`, from the BM25
+ * statistics), and the best sentence comes first: on SQuAD this puts the answer in the first
+ * bullet far more often than reading order did (see the README's performance section).
  */
-export function extractiveAnswer(question, sources, { maxSentences = 8 } = {}) {
+export function extractiveAnswer(question, sources, { maxSentences = 8, idf } = {}) {
   const t0 = performance.now();
-  const q = new Set(tokenize(question));
+  const q = [...new Set(tokenize(question))];
+  const weight = (t) => idf?.get(t) ?? 1;
+  const mass = q.reduce((sum, t) => sum + weight(t), 0) || 1;
   const cands = [];
   const top = Math.max(...sources.map((s) => s.score || 0), 1e-9);
   sources.filter((s) => !s.neighbor).forEach((s, rank) => {
@@ -277,9 +282,11 @@ export function extractiveAnswer(question, sources, { maxSentences = 8 } = {}) {
       const toks = tokenize(clean);
       if (toks.length < 4) return;
       const set = new Set(toks);
-      const hits = [...set].filter((t) => q.has(t)).length;
-      if (!hits) return;
-      const score = (hits / Math.sqrt(set.size)) * (0.3 + 0.7 * rel);
+      const hits = q.filter((t) => set.has(t));
+      if (!hits.length) return;
+      // share of the question's (rarity-weighted) words the sentence contains, mildly length-normalised
+      const covered = hits.reduce((sum, t) => sum + weight(t), 0) / mass;
+      const score = (covered / Math.pow(set.size, 0.25)) * (0.3 + 0.7 * rel);
       cands.push({ text: clean, label: sourceLabel(s), score, set, rank, pos });
     });
   });
@@ -291,8 +298,7 @@ export function extractiveAnswer(question, sources, { maxSentences = 8 } = {}) {
     const dup = chosen.some((x) => [...c.set].filter((t) => x.set.has(t)).length / c.set.size > 0.7);
     if (!dup) chosen.push(c);
   }
-  // keep the manual's reading order so the answer flows naturally
-  chosen.sort((a, b) => a.rank - b.rank || a.pos - b.pos);
+  // most relevant first (each bullet keeps its own citation)
   const labels = [...new Set(chosen.map((c) => c.label))];
   const text = chosen.length
     ? `**Key passages from the documents**\n${chosen.map((c) => `- ${c.text} [${c.label}]`).join('\n')}\n\nSources: [${labels.join('; ')}]`
