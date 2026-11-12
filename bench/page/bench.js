@@ -94,10 +94,13 @@ window.bench = {
     return sets.length;
   },
 
-  /** One full answer with the in-browser model, using this tree's defaults for that provider. */
+  /**
+   * One full answer with the in-browser model, with the settings a user gets by picking that model
+   * in Settings (trees with settingsForProvider switch to their in-browser defaults on the way in).
+   */
   async answer(question, overrides = {}) {
-    const base = { ...S.DEFAULT_SETTINGS, provider: 'browser' };
-    const settings = { ...(typeof S.settingsForProvider === 'function' ? S.settingsForProvider(base, 'browser') : base), ...overrides };
+    const picked = typeof S.settingsForProvider === 'function' ? S.settingsForProvider(S.DEFAULT_SETTINGS, 'browser') : { ...S.DEFAULT_SETTINGS, provider: 'browser' };
+    const settings = { ...picked, ...overrides };
     const rec = await P.runQuestion({ question, sets, settings });
     return {
       answer: rec.answer,
