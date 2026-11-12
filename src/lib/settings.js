@@ -61,7 +61,7 @@ export const PROFILES = {
   quality: {
     label: 'Best quality',
     tags: ['quality'],
-    why: 'Cross-encoder reranking, neighbour context, strict two-call judge and a corrective retry. Slower, most accurate.',
+    why: 'Cross-encoder reranking, neighbour context, strict two-call judge and a corrective retry. Slower; the reranker helps most on everyday questions.',
     values: { retrievalMode: 'hybrid', k: 5, rerank: true, neighbors: true, hyde: false, condense: true, judgeMode: 'strict', corrective: true, embedModel: 'Xenova/bge-small-en-v1.5', maxTokens: 768 },
   },
 };

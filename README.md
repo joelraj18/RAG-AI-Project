@@ -129,20 +129,23 @@ Smaller fixes that are not timed above:
 
 These ideas were measured on the tuning data and left out, so the app stays simpler:
 
-- **A lighter stemmer** (plurals and a few endings only) scored about the same as Porter: 0.697 against 0.701 nDCG@10
-  on SciFact's training questions, and 80.6% against 79.9% right page first on SQuAD half A.
+- **A lighter stemmer** (plurals and a few endings only) did about as well as Porter in keyword search: 0.697 against
+  0.701 nDCG@10 on SciFact's training questions, and 80.6% against 79.9% right page first on SQuAD half A.
 - **Counting keyword search double in hybrid search** helped SQuAD half A (right page first 74.5% → 78.4%) but hurt
-  SciFact (0.744 → 0.734), so both searches still count the same.
-- **More candidates before fusion** (100 per search instead of 20) changed nothing (74.6% against 74.5%).
+  SciFact's training questions (0.744 → 0.734), so both searches still count the same.
+- **More candidates before fusion** (100 per search instead of 20) changed nothing on SQuAD half A (74.6% against
+  74.5% right page first).
 - **Cutting MiniLM's input at 256 word pieces**, the length it was trained on, gave the same accuracy (0.654 against
-  0.653 on SciFact) with slightly lower recall, so the simpler code stayed.
+  0.653 nDCG@10 on SciFact's training questions) with slightly lower recall, so the simpler code stayed.
 - **Shorter answers without an LLM** (5 sentences instead of 8) were 22% shorter, but held the answer less often
-  (84.4% against 85.9%).
+  (84.4% against 85.9% on SQuAD half A).
 - **8-bit Qwen on CPU** (instead of 4-bit) wrote 2.1× faster and is a third smaller to download, but its correct short
   answers fell from 67.5% to 32.5% on 40 SQuAD half A questions with the right paragraph given, so 4-bit stays.
-- **Letting the reranker set the order alone** raised right page first on SQuAD half A from 73.7% to 82.3%, but
-  SciFact fell from 0.733 to 0.697. Combining both orders keeps most of the gain (80.3%) and almost all of SciFact
-  (0.726), so that is what the reranker does now.
+- **Letting the reranker set the order alone** raised right page first from 73.7% to 82.3% on 300 SQuAD half A
+  questions, but on 150 SciFact training questions nDCG@10 fell from 0.733 to 0.697. Combining both orders keeps
+  most of the SQuAD gain (80.3%) and loses less on SciFact (0.726), so that is what the reranker does now. On
+  SciFact's test questions it still scores below search alone (0.725 against 0.747), which is why it stays off by
+  default.
 
 ### How it was measured
 
