@@ -171,6 +171,9 @@ These ideas were measured on the tuning data and left out, so the app stays simp
   Chromium (WebAssembly, no GPU), served from a local mirror of the model files.
 - **Uncertainty.** Changes in quality come with a 95% confidence interval from a paired bootstrap over the questions.
   Speed is the median of repeated runs after a warm-up, with the old and new builds run in turn.
+- **What was timed.** Indexing 10 SQuAD articles (3 cold starts, each in a fresh browser profile), 40 question
+  embeddings, 10 reranks of 20 passages, the in-browser model (Qwen2.5 0.5B) on fixed prompts of about 240 and 940
+  tokens, and 8 complete answers with the settings each version gives you when you pick the in-browser model.
 - **Thread count.** Chosen by measurement on the test machine: 4 threads beat 3 and 2 both for embeddings (8.7, 7.0 and
   5.0 passages per second) and for the in-browser LLM (3.0, 2.5 and 1.8 tokens per second), so the workers use every
   core (up to 8).
@@ -201,7 +204,7 @@ Free:
 | Provider | Setup | Data |
 |---|---|---|
 | **Extractive** (default) | none. Quotes the best sentences with citations; instant, but no LLM judge | stays on device |
-| **In-browser** | none (0.5 to 1.7 GB downloaded once); use WebGPU (Chrome, Edge) for usable speed | stays on device |
+| **In-browser** | none (0.5 to 1.7 GB downloaded once); fastest with WebGPU (Chrome, Edge), and without it Qwen2.5 0.5B answers in about 20 s on 4 CPU cores when the page is multi-threaded (see Deploy) | stays on device |
 | **Hugging Face Inference** ⭐ | free token from <https://huggingface.co/settings/tokens> (enable *Inference Providers*) | excerpts sent to Hugging Face |
 | **Local or custom endpoint** | e.g. `OLLAMA_ORIGINS=* ollama serve`, then `ollama pull mistral:7b-instruct` | stays on device for `localhost`, otherwise sent to that server |
 

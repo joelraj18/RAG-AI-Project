@@ -169,7 +169,7 @@ export default function SettingsView() {
               <Field label={`top_p: ${s.topP}`}>
                 <input type="range" min="0.5" max="1" step="0.01" value={s.topP} onChange={num('topP')} className="w-full accent-brand-600" />
               </Field>
-              <Field label="Compact context" hint="Keeps each passage's most relevant sentences (about half). Local models read the prompt about a third faster; the answer stays in context for most questions.">
+              <Field label="Compact context" hint="Keeps each passage's most relevant sentences (about half), so a local model reads about a third less before it answers. In tests the answer stayed in the context for 93% of questions (95% untrimmed).">
                 <select value={String(s.compactContext)} onChange={(e) => setSettings({ compactContext: e.target.value === 'auto' ? 'auto' : e.target.value === 'true' })} className={inputCls}>
                   <option value="auto">Auto: local models only</option>
                   <option value="true">Always</option>
@@ -205,7 +205,7 @@ export default function SettingsView() {
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Toggle checked={s.rerank} onChange={(v) => setSettings({ rerank: v })} label={<>Cross-encoder reranking <TagBadges tags={['quality']} /></>} hint={`Re-scores the top ${s.fetchK} candidates jointly with the question. Best single quality boost; ${RERANK_MODEL.size} download once, +100–400 ms.`} />
+              <Toggle checked={s.rerank} onChange={(v) => setSettings({ rerank: v })} label={<>Cross-encoder reranking <TagBadges tags={['quality']} /></>} hint={`Re-scores the top ${s.fetchK} candidates together with the question and blends that order with the search order. Helps most on everyday questions; on scientific abstracts search alone scored higher. ${RERANK_MODEL.size} download once, about 1 s per question on 4 CPU cores.`} />
               <Toggle checked={s.neighbors} onChange={(v) => setSettings({ neighbors: v })} label="Neighbour expansion" hint={`Adds the adjacent chunk of the same section (budget ${s.contextBudget} tokens) so answers are not cut mid-topic. More prompt tokens.`} />
               <Toggle checked={s.condense} onChange={(v) => setSettings({ condense: v })} label={<>Rewrite follow-up questions <TagBadges tags={['recommended']} /></>} hint="LLM turns “what about its treatment?” into a standalone question before searching. +1 short LLM call on follow-ups." />
               <Toggle checked={s.hyde} onChange={(v) => setSettings({ hyde: v })} label="HyDE query expansion" hint="LLM drafts a hypothetical answer and searches with it. Helps vague questions; +1 LLM call per question." />
