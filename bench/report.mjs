@@ -36,13 +36,13 @@ const QUALITY = [
   { id: 'sciCon', card: true, label: 'Contradicted claims passed', note: 'claim check, SciFact claims, lower is better', lower: true, suite: 'claims-B', get: (r) => r.scifact.contradictedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'C') },
 ];
 const SPEED = [
+  { id: 'cold', label: 'First document, from a cold start', unit: 's', get: (r) => r.indexing?.firstDocMs / 1000, fmt: (v) => v.toFixed(1) },
   { id: 'index', label: 'Indexing a document', unit: 'chunks/s', get: (r) => r.indexing?.chunksPerSec, higher: true, fmt: (v) => v.toFixed(1) },
   { id: 'query', label: 'Embedding a question', unit: 'ms', get: (r) => r.queryEmbedMs?.median, fmt: (v) => Math.round(v) },
   { id: 'rerank', label: 'Reranking 20 passages', unit: 'ms', get: (r) => r.rerank20Ms?.median, fmt: (v) => Math.round(v) },
   { id: 'first', label: 'In-browser LLM, first token', unit: 'ms', get: (r) => r.llm?.prompts?.long?.firstTokenMs, fmt: (v) => Math.round(v) },
   { id: 'decode', label: 'In-browser LLM, writing speed', unit: 'tokens/s', get: (r) => r.llm?.prompts?.long?.decodeTokPerSec, higher: true, fmt: (v) => v.toFixed(1) },
   { id: 'answer', label: 'In-browser LLM, full answer', unit: 's', get: (r) => r.answers?.totalMs?.median / 1000, fmt: (v) => v.toFixed(1) },
-  { id: 'download', label: 'In-browser LLM, download', unit: 'MB', get: (r) => r.llm?.downloadBytes / 1e6, fmt: (v) => Math.round(v) },
 ];
 
 const pct = (v) => (v == null ? 'n/a' : `${(100 * v).toFixed(1)}%`);
