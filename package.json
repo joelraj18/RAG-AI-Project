@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src",
+    "lint": "eslint src bench",
     "bench": "node bench/run.mjs --label after --suites claims,squad,beir,holdout,speed",
     "bench:report": "node bench/report.mjs"
   },

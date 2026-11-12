@@ -70,8 +70,8 @@ export async function openBench(browser, url, { logConsole = false } = {}) {
   });
   page.on('pageerror', (e) => warnings.push(`pageerror: ${e.message}`));
   await page.goto(`${url}bench-page/index.html`);
-  await page.waitForFunction(() => window.benchReady === true, null, { timeout: 60000 });
-  const call = (name, ...args) => page.evaluate(([n, a]) => window.bench[n](...a), [name, args]);
+  await page.waitForFunction(() => globalThis.benchReady === true, null, { timeout: 60000 });
+  const call = (name, ...args) => page.evaluate(([n, a]) => globalThis.bench[n](...a), [name, args]);
   return { page, call, warnings, info: () => call('info'), close: () => context.close() };
 }
 
