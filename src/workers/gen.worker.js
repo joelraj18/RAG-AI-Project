@@ -39,10 +39,12 @@ self.onmessage = async (e) => {
         self.postMessage({ id, type: 'token', text });
       },
     });
+    // return_dict: false gives the token ids themselves (the default is { input_ids, attention_mask })
     const promptTokens = generator.tokenizer.apply_chat_template(messages, {
       add_generation_prompt: true,
       tokenize: true,
       return_tensor: false,
+      return_dict: false,
     }).length;
     await generator(messages, {
       max_new_tokens: maxTokens,
