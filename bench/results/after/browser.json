@@ -11,7 +11,7 @@
   "embed": {
    "Xenova/gte-small": {
     "namespace": "ns1",
-    "cached": 16899
+    "cached": 24247
    },
    "Xenova/all-MiniLM-L6-v2": {
     "namespace": "ns1",
