@@ -216,7 +216,7 @@ writeFileSync(readme, text);
 
 const summary = {
   generated: new Date().toISOString().slice(0, 10),
-  hardware: A('speed-on')?.meta ? `${A('speed-on').meta.cpu}, ${A('speed-on').meta.cores} vCPU, no GPU` : null,
+  hardware: A('speed-on')?.meta ? `${A('speed-on').meta.cpu.replace(/\((R|TM)\)|\s+(Processor|CPU)\b/g, '').replace(/\s+/g, ' ').trim()}, ${A('speed-on').meta.cores} vCPU, no GPU` : null,
   quality: q.map(({ id, label, note, before, after, ci, lower, card }) => ({ id, label, note, before, after, delta: ci.delta, lower: !!lower, card: !!card })),
   speed: sp.map(({ id, label, unit, before, after, factor, higher }) => ({ id, label, unit, before, after, factor, higher: !!higher })),
 };

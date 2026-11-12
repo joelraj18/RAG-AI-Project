@@ -1,6 +1,6 @@
 {
  "generated": "2026-11-12",
- "hardware": "Intel(R) Xeon(R) Processor @ 2.30GHz, 4 vCPU, no GPU",
+ "hardware": "Intel Xeon @ 2.30GHz, 4 vCPU, no GPU",
  "quality": [
   {
    "id": "page1",
