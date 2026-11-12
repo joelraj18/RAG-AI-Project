@@ -23,15 +23,17 @@ const QUALITY = [
   { id: 'page1', label: 'Right page ranked first', note: 'SQuAD, app defaults', suite: 'squad-B', get: (r) => r.configs.default.hit1, per: (r) => r.configs.default.per.hit1 },
   { id: 'pageK', label: 'Right page in the top 4', note: 'SQuAD, app defaults', suite: 'squad-B', get: (r) => r.configs.default.hitK, per: (r) => r.configs.default.per.hitK },
   { id: 'ctx', label: 'Answer text reaches the prompt', note: 'SQuAD, retrieved context', suite: 'squad-B', get: (r) => r.configs.default.goldInContext, per: (r) => r.configs.default.per.ctx },
-  { id: 'first', label: 'Answer in the first bullet', note: 'SQuAD, no-LLM answer', suite: 'squad-B', get: (r) => r.configs.default.answerFirst, per: (r) => r.configs.default.per.first },
-  { id: 'top3', label: 'Answer in the top 3 bullets', note: 'SQuAD, no-LLM answer', suite: 'squad-B', get: (r) => r.configs.default.answerTop3, per: (r) => r.configs.default.per.top3 },
-  { id: 'kw', label: 'Keyword search accuracy', note: 'SciFact nDCG@10', suite: 'scifact-test', get: (r) => r.configs.bm25.ndcg10, per: (r) => r.configs.bm25.per.ndcg10 },
-  { id: 'hyb', label: 'Hybrid search accuracy', note: 'SciFact nDCG@10, app default', suite: 'scifact-test', get: (r) => r.configs['hybrid-gte'].ndcg10, per: (r) => r.configs['hybrid-gte'].per.ndcg10 },
+  { id: 'first', card: true, label: 'Answer in the first bullet', note: 'SQuAD, no-LLM answer', suite: 'squad-B', get: (r) => r.configs.default.answerFirst, per: (r) => r.configs.default.per.first },
+  { id: 'top3', card: true, label: 'Answer in the top 3 bullets', note: 'SQuAD, no-LLM answer', suite: 'squad-B', get: (r) => r.configs.default.answerTop3, per: (r) => r.configs.default.per.top3 },
+  { id: 'kw', card: true, label: 'Keyword search accuracy', note: 'SciFact nDCG@10', suite: 'scifact-test', get: (r) => r.configs.bm25.ndcg10, per: (r) => r.configs.bm25.per.ndcg10 },
+  { id: 'hyb', card: true, label: 'Hybrid search accuracy', note: 'SciFact nDCG@10, app default', suite: 'scifact-test', get: (r) => r.configs['hybrid-gte'].ndcg10, per: (r) => r.configs['hybrid-gte'].per.ndcg10 },
   { id: 'rr', label: 'Hybrid search with reranker', note: 'SciFact nDCG@10, Best quality profile', suite: 'scifact-test', get: (r) => r.configs['hybrid-gte-rerank'].ndcg10, per: (r) => r.configs['hybrid-gte-rerank'].per.ndcg10 },
-  { id: 'swap', label: 'Swapped facts caught', note: 'claim check, SQuAD sentences', suite: 'claims-B', get: (r) => r.squad.swapCaught, per: (r) => r.squad.per.caught },
+  { id: 'nfKw', label: 'Keyword search, unseen data', note: 'NFCorpus nDCG@10, never used for tuning', suite: 'nfcorpus-test', get: (r) => r.configs.bm25.ndcg10, per: (r) => r.configs.bm25.per.ndcg10 },
+  { id: 'nfHyb', card: true, label: 'Hybrid search, unseen data', note: 'NFCorpus nDCG@10, never used for tuning', suite: 'nfcorpus-test', get: (r) => r.configs['hybrid-gte'].ndcg10, per: (r) => r.configs['hybrid-gte'].per.ndcg10 },
+  { id: 'swap', card: true, label: 'Swapped facts caught', note: 'claim check, SQuAD sentences', suite: 'claims-B', get: (r) => r.squad.swapCaught, per: (r) => r.squad.per.caught },
   { id: 'true', label: 'True sentences passed', note: 'claim check, SQuAD sentences', suite: 'claims-B', get: (r) => r.squad.truePass, per: (r) => r.squad.per.truePass },
-  { id: 'sciSup', label: 'Supported claims passed', note: 'claim check, SciFact claims, higher is better', suite: 'claims-B', get: (r) => r.scifact.supportedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'S') },
-  { id: 'sciCon', label: 'Contradicted claims passed', note: 'claim check, SciFact claims, lower is better', lower: true, suite: 'claims-B', get: (r) => r.scifact.contradictedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'C') },
+  { id: 'sciSup', card: true, label: 'Supported claims passed', note: 'claim check, SciFact claims, higher is better', suite: 'claims-B', get: (r) => r.scifact.supportedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'S') },
+  { id: 'sciCon', card: true, label: 'Contradicted claims passed', note: 'claim check, SciFact claims, lower is better', lower: true, suite: 'claims-B', get: (r) => r.scifact.contradictedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'C') },
 ];
 const SPEED = [
   { id: 'index', label: 'Indexing a document', unit: 'chunks/s', get: (r) => r.indexing?.chunksPerSec, higher: true, fmt: (v) => v.toFixed(1) },
@@ -44,13 +46,22 @@ const SPEED = [
 ];
 
 const pct = (v) => (v == null ? 'n/a' : `${(100 * v).toFixed(1)}%`);
-const pts = (d) => `${d >= 0 ? '+' : ''}${(100 * d).toFixed(1)}`;
+const pts = (d) => {
+  const v = Number((100 * d).toFixed(1));
+  return v === 0 ? '0.0' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
+};
+// measurably better: the whole confidence interval is on the good side of zero
+const better = (r) => (r.lower ? r.ci.hi < 0 : r.ci.lo > 0);
+
+// the paired bootstrap needs the same questions, in the same order, on both sides
+const questionIds = (r) => JSON.stringify(r.qids ?? [r.squad?.ids, r.scifact?.ids]);
 
 function qualityRows() {
   return QUALITY.map((m) => {
     const b = B(m.suite)?.result;
     const a = A(m.suite)?.result;
     if (!b || !a) return null;
+    if (questionIds(b) !== questionIds(a)) throw new Error(`${m.suite}: before and after were measured on different questions`);
     const ci = pairedBootstrap(m.per(b), m.per(a));
     return { ...m, before: m.get(b), after: m.get(a), ci };
   }).filter(Boolean);
@@ -147,7 +158,8 @@ function speedBars(rows, title, subtitle) {
 // ---------- markdown ----------
 function qualityTable(rows) {
   const head = '| What we measured | Before | After | Change (95% CI) |\n|---|---|---|---|';
-  return [head, ...rows.map((r) => `| ${r.label} (${r.note}) | ${pct(r.before)} | **${pct(r.after)}** | ${pts(r.ci.delta)} pts (${pts(r.ci.lo)} to ${pts(r.ci.hi)}) |`)].join('\n');
+  const after = (r) => (better(r) ? `**${pct(r.after)}**` : pct(r.after));
+  return [head, ...rows.map((r) => `| ${r.label} (${r.note}) | ${pct(r.before)} | ${after(r)} | ${pts(r.ci.delta)} pts (${pts(r.ci.lo)} to ${pts(r.ci.hi)}) |`)].join('\n');
 }
 function speedTable(rows) {
   const head = '| What we timed | Before (1 thread) | After (isolated) | After, not isolated | Faster by |\n|---|---|---|---|---|';
@@ -177,7 +189,7 @@ function plainTable(q, sp) {
 const q = qualityRows();
 const sp = speedRows();
 mkdirSync(join(ROOT, 'docs', 'benchmarks'), { recursive: true });
-if (q.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'quality.svg'), dumbbell(q, 'Answer and retrieval quality, before and after', 'Held-out questions only: SQuAD half B, SciFact test, claim check on SQuAD half B'));
+if (q.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'quality.svg'), dumbbell(q, 'Answer and retrieval quality, before and after', 'Held-out data only: SQuAD half B, SciFact test questions and claims, NFCorpus'));
 if (sp.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'speed.svg'), speedBars(sp, 'Local models: how many times faster', 'Headless Chromium on 4 vCPU, no GPU; before = one thread, after = cross-origin isolated'));
 
 const block = [
@@ -197,7 +209,7 @@ writeFileSync(readme, text);
 const summary = {
   generated: new Date().toISOString().slice(0, 10),
   hardware: A('speed-on')?.meta ? `${A('speed-on').meta.cpu}, ${A('speed-on').meta.cores} vCPU, no GPU` : null,
-  quality: q.map(({ id, label, note, before, after, ci }) => ({ id, label, note, before, after, delta: ci.delta })),
+  quality: q.map(({ id, label, note, before, after, ci, lower, card }) => ({ id, label, note, before, after, delta: ci.delta, lower: !!lower, card: !!card })),
   speed: sp.map(({ id, label, unit, before, after, factor, higher }) => ({ id, label, unit, before, after, factor, higher: !!higher })),
 };
 writeFileSync(join(ROOT, 'src', 'lib', 'benchmarks.json'), JSON.stringify(summary, null, 1) + '\n');

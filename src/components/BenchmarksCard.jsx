@@ -24,7 +24,7 @@ export default function BenchmarksCard() {
         <div>
           <div className="eyebrow mb-2">Answers and search</div>
           <ul className="space-y-2.5">
-            {bench.quality.map((m) => (
+            {bench.quality.filter((m) => m.card).map((m) => (
               <li key={m.id} className="text-sm">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="font-medium">{m.label}</span>
