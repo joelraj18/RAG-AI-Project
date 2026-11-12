@@ -96,7 +96,13 @@ try {
     for (const isolated of String(args.isolation || 'off,on').split(',')) await suite(`speed-${isolated}`, () => speedSuite(E, tree, { isolated: isolated === 'on', provider, log, reps: Number(args.reps || 3), ragQuestions: Number(args.rag ?? 8) }));
   }
 } finally {
-  if (provider.browserInfo) writeFileSync(join(outDir, 'browser.json'), JSON.stringify({ browser: provider.browserInfo, models: provider.info, revisions: provider.mirror?.revisions }, null, 1));
+  if (provider.browserInfo) {
+    // merged with earlier runs of this label, so each model keeps its cache namespace record
+    const file = join(outDir, 'browser.json');
+    const prev = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
+    const models = { embed: { ...prev.models?.embed, ...provider.info.embed }, rerank: { ...prev.models?.rerank, ...provider.info.rerank } };
+    writeFileSync(file, JSON.stringify({ browser: provider.browserInfo, models, revisions: { ...prev.revisions, ...provider.mirror?.revisions } }, null, 1));
+  }
   await provider.close();
 }
 log('all requested suites finished');
