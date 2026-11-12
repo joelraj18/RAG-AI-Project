@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import { BENCH_DIR, SOURCES, scifact, nfcorpus, scifactClaims, squad } from './lib/data.mjs';
+import { stringify } from './lib/json.mjs';
 import { installWorkerShim } from './lib/worker-shim.mjs';
 import { loadEngine } from './lib/engine.mjs';
 import { Provider } from './lib/provider.mjs';
@@ -63,7 +64,7 @@ async function suite(name, fn) {
   log(`${name}: running`);
   const t0 = performance.now();
   const result = await fn();
-  writeFileSync(file, JSON.stringify({ meta: { ...meta(), suite: name, seconds: Math.round((performance.now() - t0) / 1000) }, result }, null, 1));
+  writeFileSync(file, stringify({ meta: { ...meta(), suite: name, seconds: Math.round((performance.now() - t0) / 1000) }, result }));
   log(`${name}: done in ${Math.round((performance.now() - t0) / 1000)} s`);
 }
 
@@ -101,7 +102,7 @@ try {
     const file = join(outDir, 'browser.json');
     const prev = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {};
     const models = { embed: { ...prev.models?.embed, ...provider.info.embed }, rerank: { ...prev.models?.rerank, ...provider.info.rerank } };
-    writeFileSync(file, JSON.stringify({ browser: provider.browserInfo, models, revisions: { ...prev.revisions, ...provider.mirror?.revisions } }, null, 1));
+    writeFileSync(file, stringify({ browser: provider.browserInfo, models, revisions: { ...prev.revisions, ...provider.mirror?.revisions } }));
   }
   await provider.close();
 }
