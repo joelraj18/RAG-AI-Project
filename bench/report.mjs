@@ -39,8 +39,8 @@ const SPEED = [
   { id: 'cold', label: 'First document, from a cold start', unit: 's', get: (r) => r.indexing?.firstDocMs / 1000, fmt: (v) => v.toFixed(1) },
   { id: 'index', label: 'Indexing a document', unit: 'chunks/s', get: (r) => r.indexing?.chunksPerSec, higher: true, fmt: (v) => v.toFixed(1) },
   { id: 'query', label: 'Embedding a question', unit: 'ms', get: (r) => r.queryEmbedMs?.median, fmt: (v) => Math.round(v) },
-  { id: 'rerank', label: 'Reranking 20 passages', unit: 'ms', get: (r) => r.rerank20Ms?.median, fmt: (v) => Math.round(v) },
-  { id: 'first', label: 'In-browser LLM, first token', unit: 'ms', get: (r) => r.llm?.prompts?.long?.firstTokenMs, fmt: (v) => Math.round(v) },
+  { id: 'rerank', label: 'Reranking 20 passages', unit: 's', get: (r) => r.rerank20Ms?.median / 1000, fmt: (v) => v.toFixed(2) },
+  { id: 'first', label: 'In-browser LLM, first token', unit: 's', get: (r) => r.llm?.prompts?.long?.firstTokenMs / 1000, fmt: (v) => v.toFixed(1) },
   { id: 'decode', label: 'In-browser LLM, writing speed', unit: 'tokens/s', get: (r) => r.llm?.prompts?.long?.decodeTokPerSec, higher: true, fmt: (v) => v.toFixed(1) },
   { id: 'answer', label: 'In-browser LLM, full answer', unit: 's', get: (r) => r.answers?.totalMs?.median / 1000, fmt: (v) => v.toFixed(1) },
 ];
@@ -50,8 +50,9 @@ const pts = (d) => {
   const v = Number((100 * d).toFixed(1));
   return v === 0 ? '0.0' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
 };
-// measurably better: the whole confidence interval is on the good side of zero
-const better = (r) => (r.lower ? r.ci.hi < 0 : r.ci.lo > 0);
+// measurably better: the whole confidence interval, as printed (0.1 pt), is on the good side of zero
+const shown = (d) => Number((100 * d).toFixed(1));
+const better = (r) => (r.lower ? shown(r.ci.hi) < 0 : shown(r.ci.lo) > 0);
 
 // the paired bootstrap needs the same questions, in the same order, on both sides
 const questionIds = (r) => JSON.stringify(r.qids ?? [r.squad?.ids, r.scifact?.ids]);
@@ -182,7 +183,7 @@ function plainTable(q, sp) {
     return r ? `${r.factor.toFixed(1)}×` : 'n/a';
   };
   const rows = [
-    ['Search understands word forms', "Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words.", 'A Porter stemmer, accent folding and hyphen handling make them match.', `Keyword search accuracy on SciFact ${P(val(q, 'kw', 'before'))} → **${P(val(q, 'kw'))}**`],
+    ['Search understands word forms', "Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words.", 'A Porter stemmer, accent folding and hyphen handling make them match.', `Keyword search accuracy on SciFact ${P(val(q, 'kw', 'before'))} → **${P(val(q, 'kw'))}**, on unseen NFCorpus ${P(val(q, 'nfKw', 'before'))} → ${P(val(q, 'nfKw'))}`],
     ['The answer comes first', 'Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle.', 'The most relevant sentence comes first, and rare question words count more than common ones.', `Answer in the first bullet ${P(val(q, 'first', 'before'))} → **${P(val(q, 'first'))}**`],
     ['Wrong numbers and names are caught', 'The claim check only counted shared words, so a sentence with one wrong number or name still passed.', 'Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence.', `Swapped facts caught ${P(val(q, 'swap', 'before'))} → **${P(val(q, 'swap'))}**, true sentences passed ${P(val(q, 'true'))}. On real science claims it is stricter both ways: contradicted claims pass ${P(val(q, 'sciCon', 'before'))} → ${P(val(q, 'sciCon'))}, supported ones ${P(val(q, 'sciSup', 'before'))} → ${P(val(q, 'sciSup'))}`],
     ['The reranker, measured on both kinds of text', 'It replaced the search order, which helped everyday questions but made scientific ones worse.', 'Its order is now combined with the search order. It stays off by default and is part of the Best quality profile, because on scientific text search alone still scores higher.', `SciFact with reranker ${P(val(q, 'rr', 'before'))} → **${P(val(q, 'rr'))}** (search alone ${P(val(q, 'hyb'))}); SQuAD half A right page first 73.7% → 80.3% with it (tuning data)`],
@@ -197,7 +198,7 @@ const q = qualityRows();
 const sp = speedRows();
 mkdirSync(join(ROOT, 'docs', 'benchmarks'), { recursive: true });
 if (q.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'quality.svg'), dumbbell(q, 'Answer and retrieval quality, before and after', 'Held-out data only: SQuAD half B, SciFact test questions and claims, NFCorpus'));
-if (sp.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'speed.svg'), speedBars(sp, 'Local models: how many times faster', 'Headless Chromium on 4 vCPU, no GPU; before = one thread, after = cross-origin isolated'));
+if (sp.length) writeFileSync(join(ROOT, 'docs', 'benchmarks', 'speed.svg'), speedBars(sp, 'Local models: how many times faster', 'Headless Chromium on 4 vCPU, no GPU; old site as served (one thread) against the new one (isolated, every core)'));
 
 const block = [
   '<!-- bench:start -->',
