@@ -1,8 +1,8 @@
-import { AutoTokenizer, AutoModelForSequenceClassification, env } from '@huggingface/transformers';
+import { AutoTokenizer, AutoModelForSequenceClassification } from '@huggingface/transformers';
+import { runtime } from './runtime.js';
 
 // Cross-encoder reranker: scores (query, passage) pairs jointly, which is more accurate
 // than comparing separately computed embeddings. Used on the top candidates only.
-env.allowLocalModels = false;
 
 let tokenizer = null;
 let model = null;
@@ -10,13 +10,13 @@ let loaded = null;
 
 async function load(name) {
   if (model && loaded === name) return;
-  const gpu = 'gpu' in navigator && (await navigator.gpu.requestAdapter().catch(() => null));
-  const device = gpu ? 'webgpu' : 'wasm';
+  const rt = await runtime();
+  const device = rt.device;
   const progress_callback = (p) => self.postMessage({ type: 'progress', progress: p });
   tokenizer = await AutoTokenizer.from_pretrained(name, { progress_callback });
   model = await AutoModelForSequenceClassification.from_pretrained(name, { device, dtype: device === 'webgpu' ? 'fp32' : 'q8', progress_callback });
   loaded = name;
-  self.postMessage({ type: 'ready', device });
+  self.postMessage({ type: 'ready', ...rt, dtype: device === 'webgpu' ? 'fp32' : 'q8' });
 }
 
 self.onmessage = async (e) => {

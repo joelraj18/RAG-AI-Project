@@ -1,23 +1,23 @@
-import { pipeline, env } from '@huggingface/transformers';
+import { pipeline } from '@huggingface/transformers';
+import { runtime } from './runtime.js';
 
 // Sentence-embedding worker (transformers.js). Models are downloaded once from the
 // Hugging Face Hub and cached by the browser, so later visits work offline.
-env.allowLocalModels = false;
 
 let extractor = null;
 let loaded = null;
 
 async function load(model) {
   if (extractor && loaded === model) return;
-  const webgpu = typeof navigator !== 'undefined' && 'gpu' in navigator && (await navigator.gpu.requestAdapter().catch(() => null));
-  const device = webgpu ? 'webgpu' : 'wasm';
+  const rt = await runtime();
+  const device = rt.device;
   extractor = await pipeline('feature-extraction', model, {
     device,
     dtype: device === 'webgpu' ? 'fp32' : 'q8',
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   });
   loaded = model;
-  self.postMessage({ type: 'ready', device });
+  self.postMessage({ type: 'ready', ...rt, dtype: device === 'webgpu' ? 'fp32' : 'q8' });
 }
 
 self.onmessage = async (e) => {

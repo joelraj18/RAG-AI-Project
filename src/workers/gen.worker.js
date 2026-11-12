@@ -1,7 +1,7 @@
-import { pipeline, TextStreamer, env } from '@huggingface/transformers';
+import { pipeline, TextStreamer } from '@huggingface/transformers';
+import { runtime } from './runtime.js';
 
 // In-browser instruct LLM (transformers.js). Runs on WebGPU when available, WASM otherwise.
-env.allowLocalModels = false;
 
 let generator = null;
 let loaded = null;
@@ -9,15 +9,15 @@ let device = 'wasm';
 
 async function load(model) {
   if (generator && loaded === model) return;
-  const gpu = 'gpu' in navigator && (await navigator.gpu.requestAdapter().catch(() => null));
-  device = gpu ? 'webgpu' : 'wasm';
+  const rt = await runtime();
+  device = rt.device;
   generator = await pipeline('text-generation', model, {
     device,
     dtype: device === 'webgpu' ? 'q4f16' : 'q4',
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   });
   loaded = model;
-  self.postMessage({ type: 'ready', device });
+  self.postMessage({ type: 'ready', ...rt, dtype: device === 'webgpu' ? 'q4f16' : 'q4' });
 }
 
 self.onmessage = async (e) => {
