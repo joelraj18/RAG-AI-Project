@@ -1,0 +1,38 @@
+{
+ "browser": {
+  "crossOriginIsolated": true,
+  "hardwareConcurrency": 4,
+  "webgpu": true,
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "statuses": {},
+  "hasProviderDefaults": false
+ },
+ "models": {
+  "embed": {
+   "Xenova/gte-small": {
+    "namespace": "ns1",
+    "cached": 0
+   },
+   "Xenova/all-MiniLM-L6-v2": {
+    "namespace": "ns1",
+    "cached": 0
+   },
+   "Xenova/bge-small-en-v1.5": {
+    "namespace": "ns1",
+    "cached": 0
+   }
+  },
+  "rerank": {
+   "Xenova/ms-marco-MiniLM-L-6-v2": {
+    "namespace": "ns1",
+    "cached": 0
+   }
+  }
+ },
+ "revisions": {
+  "Xenova/gte-small": "5927d1727bb12db490052a1b33265ad78058de08",
+  "Xenova/bge-small-en-v1.5": "ea104dacec62c0de699686887e3f920caeb4f3e3",
+  "Xenova/all-MiniLM-L6-v2": "751bff37182d3f1213fa05d7196b954e230abad9",
+  "Xenova/ms-marco-MiniLM-L-6-v2": "a09144355adeed5f58c8ed011d209bf8ee5a1fec"
+ }
+}

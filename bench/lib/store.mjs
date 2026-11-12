@@ -3,16 +3,36 @@
 // the same outputs as when the namespace was created, so a change in truncation, dtype or model
 // file can never silently reuse stale vectors.
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const sha1 = (s) => createHash('sha1').update(s).digest('hex');
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const locks = new Set();
+process.on('exit', () => locks.forEach((f) => rmSync(f, { force: true })));
 
 export class VectorStore {
   constructor(dir, dim) {
     this.dir = dir;
     this.dim = dim;
     mkdirSync(dir, { recursive: true });
+    // one writer per store: a second benchmark process appending to the same files would
+    // desynchronise the index from the data (each process keeps its own view of the row count)
+    const lock = join(dir, 'lock');
+    if (existsSync(lock)) {
+      const pid = Number(readFileSync(lock, 'utf8'));
+      if (pid !== process.pid && alive(pid)) throw new Error(`The cache ${dir} is in use by another benchmark process (pid ${pid}). Run one benchmark at a time.`);
+    }
+    writeFileSync(lock, String(process.pid));
+    locks.add(lock);
     this.indexFile = join(dir, 'index.json');
     this.dataFile = join(dir, 'data.f32');
     this.index = existsSync(this.indexFile) ? JSON.parse(readFileSync(this.indexFile, 'utf8')) : {};
@@ -38,6 +58,8 @@ export class VectorStore {
 
   flush() {
     if (!this.pending.length) return;
+    const onDisk = existsSync(this.dataFile) ? readFileSync(this.dataFile).length / 4 / this.dim : 0;
+    if (onDisk !== this.rows) throw new Error(`Cache ${this.dir} changed on disk (${onDisk} rows, expected ${this.rows}); another process wrote to it.`);
     const add = new Float32Array(this.pending.length * this.dim);
     this.pending.forEach((p, i) => {
       add.set(p.vec, i * this.dim);
