@@ -3,7 +3,7 @@ import { Bot, Search, Scale, Database, KeyRound, CheckCircle2, XCircle, Loader2,
 import { Button, Card, CardHeader, Field, Toggle, inputCls, cx, Badge, OptionCard, TagBadges, PageHeader, useDialog } from '../components/ui.jsx';
 import { PROVIDERS, BROWSER_MODELS, generate } from '../lib/llm.js';
 import { EMBED_MODELS, RERANK_MODEL } from '../lib/workers.js';
-import { PROFILES, matchProfile } from '../lib/settings.js';
+import { PROFILES, matchProfile, settingsForProvider } from '../lib/settings.js';
 import { PRESETS } from '../lib/presets.js';
 import { QNA_SYSTEM } from '../lib/prompts.js';
 import { systemPrompt } from '../lib/pipeline.js';
@@ -106,7 +106,7 @@ export default function SettingsView() {
                       const where = dataClass({ ...s, provider: id });
                       const blocked = s.confidential && where === 'cloud';
                       return (
-                        <OptionCard key={id} selected={s.provider === id} disabled={blocked} onClick={() => setSettings({ provider: id })} title={p.label} tags={p.tags} why={p.why} cost={p.cost}>
+                        <OptionCard key={id} selected={s.provider === id} disabled={blocked} onClick={() => setSettings(settingsForProvider(s, id))} title={p.label} tags={p.tags} why={p.why} cost={p.cost}>
                           <span className={cx('mt-auto inline-flex items-center gap-1 pt-1 text-xs', where === 'cloud' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400')}>
                             {where === 'cloud' ? <CloudUpload className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
                             {blocked ? 'Blocked by Confidential mode' : where === 'cloud' ? `Sends excerpts to ${p.company || 'this endpoint'}` : 'Stays on this device'}
@@ -159,7 +159,7 @@ export default function SettingsView() {
                 hint="Off: starter questions come from section titles (free). On: the LLM writes them once per document (1 call each, cached)."
               />
             )}
-            <div className="grid gap-4 sm:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-5">
               <Field label={`Max answer tokens: ${s.maxTokens}`} hint="512 suits most answers; 256 truncated every vanilla answer in the notebook.">
                 <input type="range" min="128" max="2048" step="64" value={s.maxTokens} onChange={num('maxTokens')} className="w-full accent-brand-600" />
               </Field>
@@ -168,6 +168,13 @@ export default function SettingsView() {
               </Field>
               <Field label={`top_p: ${s.topP}`}>
                 <input type="range" min="0.5" max="1" step="0.01" value={s.topP} onChange={num('topP')} className="w-full accent-brand-600" />
+              </Field>
+              <Field label="Compact context" hint="Keeps each passage's most relevant sentences (about half). Local models read the prompt about a third faster; the answer stays in context for most questions.">
+                <select value={String(s.compactContext)} onChange={(e) => setSettings({ compactContext: e.target.value === 'auto' ? 'auto' : e.target.value === 'true' })} className={inputCls}>
+                  <option value="auto">Auto: local models only</option>
+                  <option value="true">Always</option>
+                  <option value="false">Never</option>
+                </select>
               </Field>
               <Field label="Model context window" hint="Used for the context-usage bar.">
                 <select value={s.contextWindow} onChange={num('contextWindow')} className={inputCls}>

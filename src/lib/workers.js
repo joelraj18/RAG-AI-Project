@@ -103,6 +103,19 @@ export async function embedQuery(model, text) {
   return data;
 }
 
+const preloaded = new Set();
+/**
+ * Load a model into its worker ahead of the first question (fire and forget), so the first
+ * answer does not also wait for the download and initialisation. Each model loads once.
+ */
+export function preload(kind, model) {
+  const key = `${kind}:${model}`;
+  if (preloaded.has(key)) return;
+  preloaded.add(key);
+  const job = kind === 'gen' ? genClient.call({ type: 'load', model }) : embedTexts(model, ['warm up']);
+  job.catch(() => preloaded.delete(key));
+}
+
 export async function rerank(query, passages) {
   const res = await rerankClient.call({ model: RERANK_MODEL.id, query, passages });
   return res.scores;

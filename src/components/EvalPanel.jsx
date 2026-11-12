@@ -248,6 +248,7 @@ function PromptTab({ rec }) {
         </div>
         <p className="mt-1 text-xs text-slate-500">
           {fmtNum(used)} prompt tokens of a {fmtNum(limit)}-token window ({Math.round((used / limit) * 100)}%). Retrieved context: {fmtNum(rec.trace?.contextTokens)} tokens.
+          {rec.trace?.compacted && ` Compacted for a local model from ${fmtNum(rec.trace.compacted.from)} to ${fmtNum(rec.trace.compacted.to)} tokens.`}
           {!rec.prompt && ' Prompt rebuilt from the saved sources (conversation history not included).'}
         </p>
       </Section>

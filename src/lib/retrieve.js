@@ -3,7 +3,7 @@ import { searchVectors, rrf } from './vector.js';
 import { dequantizeRow, cosine } from './quant.js';
 import { embedQuery, rerank } from './workers.js';
 import { vectorsReady } from './kb.js';
-import { estimateTokens } from './text.js';
+import { estimateTokens, tokenize, splitSentences } from './text.js';
 
 // Retrieval over one or many documents.
 //  semantic – cosine similarity on embeddings (the notebook's Chroma "similarity")
@@ -165,3 +165,41 @@ export function formatContext(sources) {
 
 export const contextTokens = (sources) => sources.reduce((s, c) => s + (c.tokens || estimateTokens(c.text || '')), 0);
 
+/**
+ * Query-focused compaction, used for local models whose prompt prefill time grows with prompt
+ * length: each passage keeps its most relevant sentences (plus the sentence after each) within
+ * `share` of its tokens, in their original order. Sentences already included from another
+ * passage (chunk overlaps) are dropped. `idf` weights rare question words more.
+ */
+export function compactContext(sources, question, { idf, share = 0.6, minTokens = 60 } = {}) {
+  const q = [...new Set(tokenize(question))];
+  const weight = (t) => idf?.get(t) ?? 1;
+  const seen = new Set();
+  const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+  return sources.map((s) => {
+    const sents = splitSentences(s.text || '');
+    if (sents.length <= 2) {
+      sents.forEach((t) => seen.add(norm(t)));
+      return s;
+    }
+    const scored = sents.map((t, i) => {
+      const set = new Set(tokenize(t));
+      return { i, score: q.reduce((sum, x) => sum + (set.has(x) ? weight(x) : 0), 0) };
+    });
+    const budget = Math.max(minTokens, (s.tokens || estimateTokens(s.text)) * share);
+    const keep = new Set();
+    let used = 0;
+    for (const { i } of scored.sort((a, b) => b.score - a.score || a.i - b.i)) {
+      if (used >= budget) break;
+      for (const j of [i, i + 1]) {
+        if (j >= sents.length || keep.has(j) || seen.has(norm(sents[j]))) continue;
+        keep.add(j);
+        used += estimateTokens(sents[j]);
+      }
+    }
+    const kept = [...keep].sort((a, b) => a - b);
+    kept.forEach((j) => seen.add(norm(sents[j])));
+    const text = kept.map((j, n) => (n && j !== kept[n - 1] + 1 ? '… ' : '') + sents[j]).join(' ');
+    return { ...s, text, tokens: estimateTokens(text), compacted: true };
+  });
+}
