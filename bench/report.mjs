@@ -32,6 +32,7 @@ const QUALITY = [
   { id: 'nfHyb', card: true, label: 'Hybrid search, unseen data', note: 'NFCorpus nDCG@10, never used for tuning', suite: 'nfcorpus-test', get: (r) => r.configs['hybrid-gte'].ndcg10, per: (r) => r.configs['hybrid-gte'].per.ndcg10 },
   { id: 'swap', card: true, label: 'Swapped facts caught', note: 'claim check, SQuAD sentences', suite: 'claims-B', get: (r) => r.squad.swapCaught, per: (r) => r.squad.per.caught },
   { id: 'true', label: 'True sentences passed', note: 'claim check, SQuAD sentences', suite: 'claims-B', get: (r) => r.squad.truePass, per: (r) => r.squad.per.truePass },
+  { id: 'near', label: 'Near misses passed', note: 'claim check, true sentence against the wrong paragraph, lower is better', lower: true, suite: 'claims-B', get: (r) => r.nearMiss.passed, per: (r) => r.nearMiss.per.passed },
   { id: 'sciSup', card: true, label: 'Supported claims passed', note: 'claim check, SciFact claims, higher is better', suite: 'claims-B', get: (r) => r.scifact.supportedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'S') },
   { id: 'sciCon', card: true, label: 'Contradicted claims passed', note: 'claim check, SciFact claims, lower is better', lower: true, suite: 'claims-B', get: (r) => r.scifact.contradictedPass, per: (r) => r.scifact.per.pass.filter((_, i) => r.scifact.per.label[i] === 'C') },
 ];
@@ -55,7 +56,7 @@ const shown = (d) => Number((100 * d).toFixed(1));
 const better = (r) => (r.lower ? shown(r.ci.hi) < 0 : shown(r.ci.lo) > 0);
 
 // the paired bootstrap needs the same questions, in the same order, on both sides
-const questionIds = (r) => JSON.stringify(r.qids ?? [r.squad?.ids, r.scifact?.ids]);
+const questionIds = (r) => JSON.stringify(r.qids ?? [r.squad?.ids, r.scifact?.ids, r.nearMiss?.ids]);
 
 function qualityRows() {
   return QUALITY.map((m) => {

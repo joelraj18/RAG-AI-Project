@@ -177,6 +177,15 @@ describe('evaluation', () => {
     expect(rows('Steroids improve survival in this group [Handbook p. 2]')[0].conflict).toBe('negation');
     expect(rows("The lab used Tesla's coil and a Mercedes-Benz car [Handbook p. 2]")[0].missing).toEqual(['tesla', 'mercedes', 'benz']);
   });
+  it('accepts names and numbers written another way, but not different ones', () => {
+    const src = [{ key: 'b:1', docId: 'b', docName: 'Paper', page: 1, text: 'Carriers of BRCA1 mutations have a higher risk. Dscam acts as a receptor in insects. FGF21 lowers SREBP-2 levels in 12 of 14 mice.' }];
+    const row = (a) => supportAnalysis(a, src).rows[0];
+    expect(row('BRCA 1 mutation carriers have a higher risk [Paper p. 1]').missing).toEqual([]);
+    expect(row('Dscam1 acts as a receptor in insects [Paper p. 1]').missing).toEqual([]);
+    expect(row('FGF21 lowers SREBP2 levels in 12 of 14 mice [Paper p. 1]').missing).toEqual([]);
+    expect(row('FGF21 lowers SREBP2 levels in 12 of 16 mice [Paper p. 1]').missing).toEqual(['16']);
+    expect(row('FGF21 lowers PCSK9 levels in 12 of 14 mice [Paper p. 1]').missing).toEqual(['pcsk9']);
+  });
   it('detects claims that cite the wrong passage', () => {
     const a = supportAnalysis('- Hybrid search merges BM25 and semantic rankings with Reciprocal Rank Fusion [Handbook p. 3]', sources);
     expect(a.rows[0].status).toBe('supported');

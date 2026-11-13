@@ -26,6 +26,23 @@ export function swapPairs(E, squad, split) {
   return pairs;
 }
 
+/**
+ * Near misses: a true sentence checked against ANOTHER paragraph of the same article. It shares the
+ * topic and many words but is not supported by that paragraph, so it should not pass.
+ */
+export function nearMissPairs(E, squad, split) {
+  const out = [];
+  for (const art of squad) {
+    art.paragraphs.forEach((p, pi) => {
+      const other = art.paragraphs[(pi + 1) % art.paragraphs.length];
+      if (other === p || !p.qas.length || half(p.qas[0].id) !== split) return;
+      const sentence = E.text.splitSentences(p.context).find((x) => x.length >= 40);
+      if (sentence) out.push({ id: `${p.qas[0].id}:near`, sentence, context: other.context });
+    });
+  }
+  return out;
+}
+
 const status = (E, claim, text) => E.evaluate.supportAnalysis(`${claim} [Doc p. 1]`, [{ key: 'a', docId: 'a', docName: 'Doc', page: 1, text }]).rows[0]?.status || 'unsupported';
 
 export function claimsSuite(E, squad, scifactClaims, { split = 'B', claimsSplit = 'dev' } = {}) {
@@ -33,6 +50,8 @@ export function claimsSuite(E, squad, scifactClaims, { split = 'B', claimsSplit 
   const truePass = pairs.map((p) => (status(E, p.sentence, p.context) === 'supported' ? 1 : 0));
   const caught = pairs.map((p) => (status(E, p.swapped, p.context) !== 'supported' ? 1 : 0));
   const byKind = (k) => mean(caught.filter((_, i) => pairs[i].kind === k));
+  const near = nearMissPairs(E, squad, split);
+  const nearPass = near.map((p) => (status(E, p.sentence, p.context) === 'supported' ? 1 : 0));
   const sci = scifactClaims[claimsSplit];
   const sciPass = sci.map((c) => (status(E, c.claim, c.abstract) === 'supported' ? 1 : 0));
   const sup = sciPass.filter((_, i) => sci[i].label === 'SUPPORT');
@@ -41,6 +60,7 @@ export function claimsSuite(E, squad, scifactClaims, { split = 'B', claimsSplit 
     split,
     claimsSplit,
     squad: { pairs: pairs.length, truePass: mean(truePass), swapCaught: mean(caught), numbersCaught: byKind('number'), namesCaught: byKind('name'), per: { truePass, caught }, ids: pairs.map((p) => p.id) },
+    nearMiss: { pairs: near.length, passed: mean(nearPass), per: { passed: nearPass }, ids: near.map((p) => p.id) },
     scifact: { supported: sup.length, contradicted: con.length, supportedPass: mean(sup), contradictedPass: mean(con), per: { pass: sciPass, label: sci.map((c) => (c.label === 'SUPPORT' ? 'S' : 'C')) }, ids: sci.map((c) => c.id) },
   };
 }

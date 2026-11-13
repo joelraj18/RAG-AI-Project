@@ -120,8 +120,29 @@ function isClaim(s) {
 
 const fold = (t) => String(t).normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
 const NUMBER = /\d+(?:[.,]\d+)*/g;
-/** Numbers in a text, normalised ("1,000" -> "1000"). */
-export const numbersOf = (t) => (fold(t).match(NUMBER) || []).map((n) => n.replace(/,(?=\d{3}(?!\d))/g, ''));
+// digits glued to a preceding letter belong to a name (Dscam1, CD4, SREBP2), not a quantity
+const QUANTITY = /(?<![\p{L}\d.,])\d+(?:[.,]\d+)*/gu;
+/**
+ * Numbers in a text, normalised ("1,000" -> "1000"). With `quantities: true` only stand-alone
+ * numbers count (a claim's "Dscam1" is a name; "BRCA 1" still matches a source's "BRCA1").
+ */
+export const numbersOf = (t, { quantities = false } = {}) => (fold(t).match(quantities ? QUANTITY : NUMBER) || []).map((n) => n.replace(/,(?=\d{3}(?!\d))/g, ''));
+/**
+ * Words of the source for name checks: plain words, hyphenated compounds joined (SREBP-2 -> srebp2)
+ * and the letter part of letter-digit words (BRCA1 -> brca), so a name written another way counts.
+ */
+function nameWords(text) {
+  const lower = text.toLowerCase();
+  const words = lower.match(/[\p{L}\p{N}]+/gu) || [];
+  const set = new Set(words);
+  for (const m of lower.matchAll(/[\p{L}\p{N}]+(?:[-\u2010\u2013/][\p{L}\p{N}]+)+/gu)) set.add(m[0].replace(/[^\p{L}\p{N}]/gu, ''));
+  for (const w of words) {
+    const letters = w.replace(/\d+$/, '');
+    if (letters.length >= 3) set.add(letters);
+  }
+  return set;
+}
+const nameIn = (name, words) => words.has(name) || words.has(name.replace(/\d+$/, ''));
 const NAME_STOP = new Set('the a an this that these those it its in on at for and or but if when while after before during with by from to of as is are was were be sources source note yes no however also both each such'.split(' '));
 /**
  * Names and acronyms in a claim: capitalised words that do not start a sentence, and all-caps terms.
@@ -162,13 +183,16 @@ const direction = (t) => {
  *    sentence that matches the claim best.
  * Fast, reproducible and free of the LLM judge's self-evaluation bias.
  */
+// a claim's cited passage must hold at least this share of its words to count as the right citation
+const CITE_MIN = 0.3;
+
 export function supportAnalysis(answer, sources, threshold = 0.6, { facts = true, conflicts = true } = {}) {
   const singleDoc = new Set(sources.map((s) => s.docId)).size <= 1;
   const src = sources.map((s) => ({ ...s, set: new Set(tokenize(s.text || '')) }));
   const all = new Set(src.flatMap((s) => [...s.set]));
   const pooledText = fold(src.map((s) => s.text || '').join(' '));
   const srcNumbers = new Set(numbersOf(pooledText));
-  const srcWords = new Set(pooledText.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  const srcWords = nameWords(pooledText);
   let sentences = null; // split lazily: only needed when a claim could conflict
   const rows = splitSentences(answer)
     .filter(isClaim)
@@ -187,9 +211,9 @@ export function supportAnalysis(answer, sources, threshold = 0.6, { facts = true
       const cites = parseCitations(s);
       const cited = src.filter((x) => cites.some((c) => citeMatches(c, x, singleDoc)));
       const citedRatio = cited.length ? Math.max(...cited.map(ratioIn)) : null;
-      const misattributed = citedRatio != null && citedRatio < threshold / 2 && best.ratio >= threshold;
+      const misattributed = citedRatio != null && citedRatio < CITE_MIN && best.ratio >= threshold;
       let status = ratio >= threshold ? 'supported' : ratio >= threshold / 2 ? 'partial' : 'unsupported';
-      const missing = facts ? [...numbersOf(plainText).filter((n) => !srcNumbers.has(n)), ...namesOf(plainText).filter((n) => !srcWords.has(n))] : [];
+      const missing = facts ? [...numbersOf(plainText, { quantities: true }).filter((n) => !srcNumbers.has(n)), ...namesOf(plainText).filter((n) => !nameIn(n, srcWords))] : [];
       let conflict = null;
       if (conflicts && status === 'supported') {
         sentences ||= src.flatMap((x) => splitSentences(x.text || '').map((t) => ({ t, set: new Set(tokenize(t)) })));
@@ -224,7 +248,7 @@ export function supportAnalysis(answer, sources, threshold = 0.6, { facts = true
   const partial = rows.filter((r) => r.status === 'partial').length;
   const share = rows.length ? (supported + partial * 0.5) / rows.length : 0;
   const citedRows = rows.filter((r) => r.citedRatio != null);
-  const citationAccuracy = citedRows.length ? citedRows.filter((r) => r.citedRatio >= threshold / 2).length / citedRows.length : null;
+  const citationAccuracy = citedRows.length ? citedRows.filter((r) => r.citedRatio >= CITE_MIN).length / citedRows.length : null;
   return { rows, share, score: rows.length ? 1 + 4 * share : null, citationAccuracy, misattributed: rows.filter((r) => r.misattributed).length };
 }
 
