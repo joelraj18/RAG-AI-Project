@@ -213,6 +213,15 @@ describe('evaluation', () => {
     const bullets = a.text.split('\n').filter((l) => l.startsWith('- '));
     expect(bullets[0]).toMatch(/Norepinephrine/);
   });
+  it('extractive answers keep a sentence that continues the chosen one, and never repeat it', () => {
+    const src = [
+      { key: 'h:1', docId: 'h', docName: 'History', page: 1, score: 1, text: 'The Royal Institution of Great Britain was founded in London in the year 1799 by leading scientists. It was established by Henry Cavendish and Joseph Banks to spread scientific knowledge. Its lecture theatre is still in use for public talks today.' },
+    ];
+    const a = extractiveAnswer('Who established the Royal Institution of Great Britain?', src);
+    const bullets = a.text.split('\n').filter((l) => l.startsWith('- '));
+    expect(bullets[0]).toMatch(/founded in London.*It was established by Henry Cavendish/);
+    expect(bullets.filter((b) => /Henry Cavendish/.test(b))).toHaveLength(1);
+  });
   it('computes retrieval accuracy (hit, recall, MRR)', () => {
     const ranked = [
       { docId: 'm', docName: 'Handbook', page: 2 },

@@ -264,36 +264,51 @@ async function localGenerate(settings, { messages, maxTokens, temperature, topP,
  * statistics), and the best sentence comes first: on SQuAD this puts the answer in the first
  * bullet far more often than reading order did (see the README's performance section).
  */
+// a sentence that starts like this continues the one before it ("It was founded in 1900.")
+const CONTINUES = /^(?:it|he|she|they|this|these|those|his|her|its|their|there|such|both|the latter|the former)\b/i;
+const bigramsOf = (toks) => new Set(toks.slice(1).map((t, i) => `${toks[i]} ${t}`));
+
 export function extractiveAnswer(question, sources, { maxSentences = 8, idf } = {}) {
   const t0 = performance.now();
-  const q = [...new Set(tokenize(question))];
+  const qToks = tokenize(question);
+  const q = [...new Set(qToks)];
+  const qPairs = bigramsOf(qToks);
   const weight = (t) => idf?.get(t) ?? 1;
   const mass = q.reduce((sum, t) => sum + weight(t), 0) || 1;
   const cands = [];
   const top = Math.max(...sources.map((s) => s.score || 0), 1e-9);
   sources.filter((s) => !s.neighbor).forEach((s, rank) => {
     const rel = Math.sqrt(Math.max(0, s.score || 0) / top);
-    splitSentences(s.text).forEach((sent, pos) => {
-      const clean = sent.replace(/\s+/g, ' ').trim();
+    const sents = splitSentences(s.text).map((x) => x.replace(/\s+/g, ' ').trim());
+    sents.forEach((clean, pos) => {
       if (clean.length < 40 || clean.length > 420) return;
       const toks = tokenize(clean);
       if (toks.length < 4) return;
       const set = new Set(toks);
       const hits = q.filter((t) => set.has(t));
       if (!hits.length) return;
-      // share of the question's (rarity-weighted) words the sentence contains, mildly length-normalised
+      // share of the question's (rarity-weighted) words the sentence contains, mildly length-normalised,
+      // with a bonus for question word pairs it repeats in the same order
       const covered = hits.reduce((sum, t) => sum + weight(t), 0) / mass;
-      const score = (covered / Math.pow(set.size, 0.25)) * (0.3 + 0.7 * rel);
-      cands.push({ text: clean, label: sourceLabel(s), score, set, rank, pos });
+      const pairs = qPairs.size ? [...bigramsOf(toks)].filter((b) => qPairs.has(b)).length / qPairs.size : 0;
+      const score = (covered / Math.pow(set.size, 0.25)) * (0.3 + 0.7 * rel) * (1 + 0.3 * pairs);
+      const next = sents[pos + 1];
+      cands.push({ text: clean, label: sourceLabel(s), score, set, rank, pos, next: next && next.length < 300 ? next : null });
     });
   });
   cands.sort((a, b) => b.score - a.score);
   const best = cands[0]?.score || 0;
   const chosen = [];
+  const used = new Set();
   for (const c of cands) {
-    if (chosen.length >= maxSentences || c.score < best * 0.45) break;
+    if (chosen.length >= maxSentences || c.score < best * 0.5) break;
+    if (used.has(`${c.rank}:${c.pos}`)) continue;
     const dup = chosen.some((x) => [...c.set].filter((t) => x.set.has(t)).length / c.set.size > 0.7);
-    if (!dup) chosen.push(c);
+    if (dup) continue;
+    // keep the following sentence when it continues this one (a pronoun) or this one is very short
+    const follow = c.next && (CONTINUES.test(c.next) || c.text.length < 90);
+    if (follow) used.add(`${c.rank}:${c.pos + 1}`);
+    chosen.push({ ...c, text: follow ? `${c.text} ${c.next}` : c.text });
   }
   // most relevant first (each bullet keeps its own citation)
   const labels = [...new Set(chosen.map((c) => c.label))];
