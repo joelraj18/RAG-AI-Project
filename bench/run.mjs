@@ -2,7 +2,8 @@
 // Benchmark runner. Measures an app tree (default: this repository) and writes one JSON file per
 // suite to bench/results/<label>/, so interrupted runs resume where they stopped.
 //
-//   node bench/run.mjs --label after [--engine <tree>] [--suites claims,squad,beir,holdout,speed] [--force]
+//   node bench/run.mjs --label after [--engine <tree>] [--suites claims,squad,beir,holdout,speed,llm] [--force]
+//   (llm: [--models a,b] [--reading 100] [--rag 24])
 //
 // Model outputs always come from the tree's own browser workers (headless Chromium through a local
 // mirror of the model files); downloads go to bench/.cache. Set NODE_USE_ENV_PROXY=1 behind a proxy.
@@ -91,6 +92,12 @@ try {
   if (suites.includes('holdout')) {
     const data = await nfcorpus();
     await suite('nfcorpus-test', () => beirSuite(E, provider, { name: 'nfcorpus', data, split: 'test', configs: BEIR_CONFIGS.filter((c) => !c.rerank), log }));
+  }
+  if (suites.includes('llm')) {
+    // one file per model, so an interrupted comparison resumes with the next model
+    const { llmModelSuite, LLM_CANDIDATES } = await import('./lib/suites/llm.mjs');
+    const models = args.models ? String(args.models).split(',') : LLM_CANDIDATES;
+    for (const model of models) await suite(`llm-${model.replace(/[^\w.-]+/g, '_')}`, () => llmModelSuite(E, tree, provider, model, { log, reading: Number(args.reading || 100), rag: Number(args.rag ?? 24) }));
   }
   if (suites.includes('speed')) {
     const { speedSuite } = await import('./lib/suites/speed.mjs');

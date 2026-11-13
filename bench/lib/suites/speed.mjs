@@ -8,6 +8,8 @@ import { quantiles, normText } from '../metrics.mjs';
 import { buildCollection, questions } from './squad.mjs';
 
 const b64 = (typed) => Buffer.from(typed.buffer, typed.byteOffset, typed.byteLength).toString('base64');
+/** A built collection in the form the bench page's loadSets() takes (chunks + int8 vectors). */
+export const packSets = (col) => col.docs.map((d) => ({ id: d.id, name: d.name, model: col.model, dim: d.vectors.dim, chunks: d.chunks, q: b64(d.vectors.q), scales: b64(d.vectors.scales) }));
 const median = (xs) => quantiles(xs)?.median ?? null;
 
 export async function speedSuite(E, tree, { isolated, provider, log = () => {}, reps = 3, ragQuestions = 8 }) {
@@ -88,10 +90,7 @@ export async function speedSuite(E, tree, { isolated, provider, log = () => {}, 
     // ---------- 5. complete answers with this tree's in-browser defaults ----------
     if (ragQuestions > 0 && provider) {
       const col = await buildCollection(E, provider, sq, { log });
-      await g.call(
-        'loadSets',
-        col.docs.map((d) => ({ id: d.id, name: d.name, model: col.model, dim: d.vectors.dim, chunks: d.chunks, q: b64(d.vectors.q), scales: b64(d.vectors.scales) }))
-      );
+      await g.call('loadSets', packSets(col));
       const picks = questions(col, 'B', 211).slice(0, ragQuestions);
       const answers = [];
       for (const q of picks) {
