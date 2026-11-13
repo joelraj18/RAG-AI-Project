@@ -20,19 +20,23 @@ const locks = new Set();
 process.on('exit', () => locks.forEach((f) => rmSync(f, { force: true })));
 
 export class VectorStore {
-  constructor(dir, dim) {
+  /** `readOnly`: read what is cached without taking the lock (for analyses next to a running benchmark). */
+  constructor(dir, dim, { readOnly = false } = {}) {
     this.dir = dir;
     this.dim = dim;
+    this.readOnly = readOnly;
     mkdirSync(dir, { recursive: true });
     // one writer per store: a second benchmark process appending to the same files would
     // desynchronise the index from the data (each process keeps its own view of the row count)
     const lock = join(dir, 'lock');
-    if (existsSync(lock)) {
-      const pid = Number(readFileSync(lock, 'utf8'));
-      if (pid !== process.pid && alive(pid)) throw new Error(`The cache ${dir} is in use by another benchmark process (pid ${pid}). Run one benchmark at a time.`);
+    if (!readOnly) {
+      if (existsSync(lock)) {
+        const pid = Number(readFileSync(lock, 'utf8'));
+        if (pid !== process.pid && alive(pid)) throw new Error(`The cache ${dir} is in use by another benchmark process (pid ${pid}). Run one benchmark at a time.`);
+      }
+      writeFileSync(lock, String(process.pid));
+      locks.add(lock);
     }
-    writeFileSync(lock, String(process.pid));
-    locks.add(lock);
     this.indexFile = join(dir, 'index.json');
     this.dataFile = join(dir, 'data.f32');
     this.index = existsSync(this.indexFile) ? JSON.parse(readFileSync(this.indexFile, 'utf8')) : {};
@@ -52,6 +56,7 @@ export class VectorStore {
   }
 
   set(key, vec) {
+    if (this.readOnly) throw new Error(`The cache ${this.dir} was opened read-only and has no entry for this input`);
     if (this.index[key] !== undefined || this.pending.some((x) => x.key === key)) return;
     this.pending.push({ key, vec: Float32Array.from(vec) });
   }

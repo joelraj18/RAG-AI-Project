@@ -22,7 +22,8 @@ export async function retrieve(sets, query, opts = {}) {
   // its order is fused with the first-stage order, and its input length. Fusing is the default:
   // the cross-encoder (trained on web search) helps on everyday questions but hurt scientific
   // text when it replaced the order outright (see the README's performance section).
-  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = true, rerankMaxLength } = opts;
+  // rrfK: the Reciprocal Rank Fusion constant (lower lets the top of each list count for more)
+  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = true, rerankMaxLength, rrfK = 60 } = opts;
   const t = { queryEmbed: 0, search: 0, rerank: 0, expand: 0 };
   const pool = opts.pool ?? Math.max(fetchK, k * 4);
 
@@ -78,7 +79,7 @@ export async function retrieve(sets, query, opts = {}) {
     }
     fused = list.map((x) => ({ ...x, scores: scoresOf(x) }));
   } else {
-    fused = rrf([semList, bm25List], 60, (x) => x.key, weights).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
+    fused = rrf([semList, bm25List], rrfK, (x) => x.key, weights).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
     if (bm25Only) effective = 'hybrid (partial)';
   }
   t.search = performance.now() - t1;

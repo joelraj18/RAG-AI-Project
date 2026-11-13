@@ -55,7 +55,8 @@ function meta() {
   };
 }
 
-const provider = new Provider(tree, { log, pages: Number(args.pages || 2) });
+// --readonly: use cached model outputs only (lets a quick suite run next to another benchmark)
+const provider = new Provider(tree, { log, pages: Number(args.pages || 2), readOnly: !!args.readonly });
 installWorkerShim(provider);
 const E = await loadEngine(tree);
 

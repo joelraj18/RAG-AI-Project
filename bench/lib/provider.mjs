@@ -30,10 +30,12 @@ const rows = (data, dim) => Array.from({ length: data.length / dim }, (_, i) => 
 
 export class Provider {
   /** `pages`: parallel browser pages (each worker uses the tree's own thread setting). */
-  constructor(tree, { log = () => {}, pages = 2 } = {}) {
+  /** `readOnly`: use cached outputs only (never compute or write), so it can run next to a benchmark. */
+  constructor(tree, { log = () => {}, pages = 2, readOnly = false } = {}) {
     this.tree = tree;
     this.log = log;
     this.nPages = pages;
+    this.readOnly = readOnly;
     this.handles = new Map();
     this.info = { embed: {}, rerank: {} };
   }
@@ -82,7 +84,7 @@ export class Provider {
     const [pg] = await this.start();
     const r = await pg.call('embed', model, PROBES);
     const ns = namespaceFor(join(CACHE, 'vec', 'embed', slug(model)), rows(decodeF32(r.b64), r.dim), (a, x) => cos(a, x) > 0.99999);
-    const h = { model, dim: r.dim, store: new VectorStore(ns.dir, r.dim), ns: ns.id };
+    const h = { model, dim: r.dim, store: new VectorStore(ns.dir, r.dim, { readOnly: this.readOnly }), ns: ns.id };
     this.info.embed[model] = { namespace: ns.id, cached: h.store.rows };
     this.log(`embed ${model}: cache namespace ${ns.id} (${h.store.rows} vectors cached)`);
     return h;
@@ -93,6 +95,7 @@ export class Provider {
     const h = await this.embedHandle(model);
     const keys = texts.map(sha1);
     const missing = [...new Map(texts.map((t, i) => [keys[i], t]).filter(([k]) => !h.store.get(k))).entries()];
+    if (missing.length && this.readOnly) throw new Error(`${missing.length} of ${texts.length} inputs for ${model} are not cached (read-only provider)`);
     if (missing.length) {
       const batch = 32;
       const jobs = [];
@@ -128,7 +131,7 @@ export class Provider {
     const ref = [];
     for (const [q, p] of RERANK_PROBES) ref.push((await pg.call('rerank', q, [p])).scores);
     const ns = namespaceFor(join(CACHE, 'vec', 'rerank', slug(model)), ref, (a, x) => Math.abs(a[0] - x[0]) < 1e-5);
-    const h = { model, store: new VectorStore(ns.dir, 1), ns: ns.id };
+    const h = { model, store: new VectorStore(ns.dir, 1, { readOnly: this.readOnly }), ns: ns.id };
     this.info.rerank[model] = { namespace: ns.id, cached: h.store.rows };
     this.log(`rerank ${model}: cache namespace ${ns.id} (${h.store.rows} scores cached)`);
     return h;
