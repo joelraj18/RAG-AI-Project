@@ -98,8 +98,9 @@ The interface follows a clean, store-like design language:
 ## Performance: before and after
 
 This round audited how well the app finds and answers, and how fast its local models run, then fixed what the
-measurements showed. Every number below comes from the same benchmark code run on the old version
-(`main` before this change) and the new one, on public datasets and in a real browser.
+measurements showed. Every change, with its numbers, is also listed in the [changelog](CHANGELOG.md). Every number
+below comes from the same benchmark code run on the old version (`main` before this change) and the new one, on public
+datasets and in a real browser.
 
 ### What changed, in plain words
 
@@ -177,6 +178,16 @@ isolated** is the old code with the new headers (ONNX Runtime then picks 2 threa
 thread** is the new code where isolation is not possible, such as the copy of the Space embedded on huggingface.co.
 Full answers also differ in their in-browser defaults: the old ones judged every answer with a second LLM pass and
 allowed 512 new tokens, the new ones skip that pass, allow 320 and trim the context.
+
+### In-browser models compared
+
+Every candidate was run alone in a fresh browser through the app's own model worker, on the CPU (4 vCPU, no GPU,
+4-bit weights). Reading accuracy is the share of 100 held-out SQuAD questions answered correctly when the right
+paragraph is given; the interval compares each model with Qwen2.5 on the same questions. Full answers go through the
+app's pipeline with its in-browser settings.
+
+<!-- models:start -->
+<!-- models:end -->
 
 ### Tried, no gain
 
