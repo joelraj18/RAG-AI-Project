@@ -1,0 +1,283 @@
+{
+ "meta": {
+  "label": "models",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "cd4f0ce",
+  "dirty": false,
+  "date": "2026-11-14T07:24:36.901Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "llm-onnx-community_Qwen2.5-0.5B-Instruct-answers",
+  "seconds": 755
+ },
+ "result": {
+  "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+  "part": "answers",
+  "loadMs": 9000.25,
+  "downloadBytes": 807494572,
+  "status": {
+   "device": "wasm",
+   "threads": 4,
+   "build": "plain",
+   "dtype": "q4"
+  },
+  "answers": {
+   "n": 24,
+   "questions": [
+    {
+     "id": "56be4db0acb8001400a502ed",
+     "totalMs": 18825.300000000047,
+     "promptTokens": 1044,
+     "completionTokens": 13,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "56d9a6b4dc89441400fdb6a1",
+     "totalMs": 14614.935000000056,
+     "promptTokens": 958,
+     "completionTokens": 9,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57339a554776f41900660e78",
+     "totalMs": 78442.55499999993,
+     "promptTokens": 905,
+     "completionTokens": 179,
+     "gold": 0,
+     "support": 0.4,
+     "error": null
+    },
+    {
+     "id": "56dfac8e231d4119001abc5c",
+     "totalMs": 35197.33499999996,
+     "promptTokens": 1078,
+     "completionTokens": 60,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "56e17e6ee3433e1400422f80",
+     "totalMs": 21834.13000000012,
+     "promptTokens": 975,
+     "completionTokens": 31,
+     "gold": 0,
+     "support": 0.5,
+     "error": null
+    },
+    {
+     "id": "56e7788200c9c71400d77184",
+     "totalMs": 19914.75,
+     "promptTokens": 944,
+     "completionTokens": 25,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "56f8ae099e9bad19000a02ef",
+     "totalMs": 18894.814999999944,
+     "promptTokens": 1113,
+     "completionTokens": 15,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "570d3468b3d812140066d543",
+     "totalMs": 77812.83000000007,
+     "promptTokens": 1142,
+     "completionTokens": 170,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57115c7450c2381900b54aa1",
+     "totalMs": 60333.73999999999,
+     "promptTokens": 1052,
+     "completionTokens": 132,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57265bdfdd62a815002e829f",
+     "totalMs": 17703.75,
+     "promptTokens": 1126,
+     "completionTokens": 11,
+     "gold": 0,
+     "support": 0.5,
+     "error": null
+    },
+    {
+     "id": "5726a34bf1498d1400e8e59e",
+     "totalMs": 16701.060000000056,
+     "promptTokens": 1077,
+     "completionTokens": 12,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "572683075951b619008f7517",
+     "totalMs": 16590.824999999953,
+     "promptTokens": 1193,
+     "completionTokens": 10,
+     "gold": 0,
+     "support": 0,
+     "error": null
+    },
+    {
+     "id": "572665ff708984140094c4c3",
+     "totalMs": 20066.439999999944,
+     "promptTokens": 969,
+     "completionTokens": 25,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "5726a9ff708984140094cd4c",
+     "totalMs": 11055.61499999999,
+     "promptTokens": 992,
+     "completionTokens": 1,
+     "gold": 0,
+     "support": 0,
+     "error": null
+    },
+    {
+     "id": "5727436af1498d1400e8f55a",
+     "totalMs": 16690.72999999998,
+     "promptTokens": 1072,
+     "completionTokens": 15,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57273dccdd62a815002e99fb",
+     "totalMs": 13495.120000000112,
+     "promptTokens": 1171,
+     "completionTokens": 3,
+     "gold": 0,
+     "support": 0,
+     "error": null
+    },
+    {
+     "id": "5728d5793acd2414000dffb5",
+     "totalMs": 20693.26000000001,
+     "promptTokens": 1052,
+     "completionTokens": 27,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "5727c0402ca10214002d9566",
+     "totalMs": 22045.084999999963,
+     "promptTokens": 1016,
+     "completionTokens": 29,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "572a1a5c6aef051400155284",
+     "totalMs": 129271.3899999999,
+     "promptTokens": 1084,
+     "completionTokens": 320,
+     "gold": 0,
+     "support": 0.25,
+     "error": null
+    },
+    {
+     "id": "57284b904b864d19001648e5",
+     "totalMs": 15719.695000000065,
+     "promptTokens": 932,
+     "completionTokens": 13,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57290b21af94a219006a9fd1",
+     "totalMs": 29074.469999999972,
+     "promptTokens": 918,
+     "completionTokens": 51,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57296eb01d04691400779435",
+     "totalMs": 19855.544999999925,
+     "promptTokens": 1115,
+     "completionTokens": 18,
+     "gold": 1,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "572ff12e04bcaa1900d76f02",
+     "totalMs": 18662.590000000084,
+     "promptTokens": 1050,
+     "completionTokens": 16,
+     "gold": 0,
+     "support": 1,
+     "error": null
+    },
+    {
+     "id": "57300200b2c2fd140056872c",
+     "totalMs": 24587.465000000084,
+     "promptTokens": 1093,
+     "completionTokens": 30,
+     "gold": 1,
+     "support": 0.5,
+     "error": null
+    }
+   ],
+   "totalMs": {
+    "n": 24,
+    "mean": 30753.476250000007,
+    "median": 19914.75,
+    "p90": 77812.83000000007,
+    "min": 11055.61499999999,
+    "max": 129271.3899999999
+   },
+   "gold": 0.4166666666666667,
+   "errors": 0
+  },
+  "peakMemoryMb": 5397
+ }
+}
