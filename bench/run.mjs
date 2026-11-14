@@ -95,10 +95,12 @@ try {
     await suite('nfcorpus-test', () => beirSuite(E, provider, { name: 'nfcorpus', data, split: 'test', configs: BEIR_CONFIGS.filter((c) => !c.rerank), log }));
   }
   if (suites.includes('llm')) {
-    // one file per model, so an interrupted comparison resumes with the next model
-    const { llmModelSuite, LLM_CANDIDATES } = await import('./lib/suites/llm.mjs');
+    // one file per model and part, so an interrupted comparison resumes where it stopped
+    const { llmPart, LLM_CANDIDATES, LLM_PARTS } = await import('./lib/suites/llm.mjs');
     const models = args.models ? String(args.models).split(',') : LLM_CANDIDATES;
-    for (const model of models) await suite(`llm-${model.replace(/[^\w.-]+/g, '_')}`, () => llmModelSuite(E, tree, provider, model, { log, reading: Number(args.reading || 100), rag: Number(args.rag ?? 24) }));
+    for (const model of models) {
+      for (const part of LLM_PARTS) await suite(`llm-${model.replace(/[^\w.-]+/g, '_')}-${part}`, () => llmPart(E, tree, provider, model, part, { log, reading: Number(args.reading || 100), rag: Number(args.rag ?? 24) }));
+    }
   }
   if (suites.includes('speed')) {
     const { speedSuite } = await import('./lib/suites/speed.mjs');

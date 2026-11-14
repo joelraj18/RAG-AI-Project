@@ -213,14 +213,21 @@ const BASE_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
 function modelRows() {
   const dir = join(BENCH_DIR, 'results', 'models');
   if (!existsSync(dir)) return [];
-  const rows = readdirSync(dir)
-    .filter((f) => /^llm-.*\.json$/.test(f))
-    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')))
-    .map(({ meta, result }) => ({ ...result, commit: meta.commit }));
+  // each model is measured in parts (speed, reading-A, reading-B, answers); merge them per model
+  const byModel = new Map();
+  for (const f of readdirSync(dir).filter((x) => /^llm-.*\.json$/.test(x))) {
+    const { meta, result } = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+    const m = byModel.get(result.model) || { model: result.model, reading: {}, peakMemoryMb: 0, commit: meta.commit };
+    if (result.part === 'speed') Object.assign(m, { loadMs: result.loadMs, downloadBytes: result.downloadBytes, status: result.status, prompts: result.prompts });
+    if (result.reading) m.reading[result.reading.split] = result.reading;
+    if (result.answers) m.answers = result.answers;
+    m.peakMemoryMb = Math.max(m.peakMemoryMb, result.peakMemoryMb || 0);
+    byModel.set(result.model, m);
+  }
+  const rows = [...byModel.values()].filter((r) => r.prompts && r.reading.A && r.reading.B);
   const base = rows.find((r) => r.model === BASE_MODEL);
-  return rows
-    .map((r) => ({ ...r, readingCi: base && r !== base && JSON.stringify(r.reading.B.ids) === JSON.stringify(base.reading.B.ids) ? pairedBootstrap(base.reading.B.per, r.reading.B.per) : null }))
-    .sort((a, b) => b.reading.B.accuracy - a.reading.B.accuracy);
+  const paired = (r, split) => (base && r !== base && JSON.stringify(r.reading[split].ids) === JSON.stringify(base.reading[split].ids) ? pairedBootstrap(base.reading[split].per, r.reading[split].per) : null);
+  return rows.map((r) => ({ ...r, readingCi: paired(r, 'B'), readingCiA: paired(r, 'A') })).sort((a, b) => b.reading.B.accuracy - a.reading.B.accuracy);
 }
 function modelTable(rows, defaultModel) {
   const mb = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${Math.round(b / 1e6)} MB`);

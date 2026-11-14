@@ -41,14 +41,24 @@ function chromeRssMb(before) {
 }
 const chromePids = () => new Set(execFileSync('ps', ['-eo', 'pid=,comm='], { encoding: 'utf8' }).split('\n').filter((l) => /chrome/.test(l)).map((l) => l.trim().split(/\s+/)[0]));
 
-export async function llmModelSuite(E, tree, provider, model, { log = () => {}, reading = 100, rag = 24 } = {}) {
+// the app tree is built once per process and shared by every part
+const built = new Map();
+const buildOnce = (tree) => {
+  if (!built.has(tree)) built.set(tree, buildTree(tree));
+  return built.get(tree);
+};
+
+/** Each model is measured in parts saved separately, so a restart loses at most one part. */
+export const LLM_PARTS = ['speed', 'reading-A', 'reading-B', 'answers'];
+
+export async function llmPart(E, tree, provider, model, part, { log = () => {}, reading = 100, rag = 24 } = {}) {
   const sq = await loadSquad();
   const ort = ortInfo(tree);
   const mirror = await startMirror({ cacheDir: CACHE, ortDir: ort.dir, ortVersion: ort.version });
-  const outDir = await buildTree(tree);
+  const outDir = await buildOnce(tree);
   const srv = await serve(outDir, true);
   // the collection for complete answers (embeddings come from the cache through the provider)
-  const col = rag > 0 ? await buildCollection(E, provider, sq, { log }) : null;
+  const col = part === 'answers' && rag > 0 ? await buildCollection(E, provider, sq, { log }) : null;
   const before = chromePids();
   const chrome = await launch(mirror);
   let peak = 0;
@@ -59,36 +69,36 @@ export async function llmModelSuite(E, tree, provider, model, { log = () => {}, 
       /* ps not available */
     }
   }, 500);
-  const result = { model };
+  const result = { model, part };
   try {
     const page = await openBench(chrome, srv.url);
-    // 1. cold load: download (local mirror) + session creation
+    // cold load: download (local mirror, empty browser cache) + session creation
     mirror.resetStats();
     result.loadMs = await page.call('load', 'gen', model);
     result.downloadBytes = mirror.stats().bytes;
     result.status = (await page.info()).statuses.gen;
-    log(`llm ${model}: loaded in ${Math.round(result.loadMs)} ms, ${Math.round(result.downloadBytes / 1e6)} MB, ${JSON.stringify(result.status)}`);
+    log(`llm ${model} [${part}]: loaded in ${Math.round(result.loadMs)} ms, ${Math.round(result.downloadBytes / 1e6)} MB, ${JSON.stringify(result.status)}`);
 
-    // 2. speed on fixed prompts (the same texts as the speed suite)
-    const ctx = sq[3].paragraphs.map((p) => p.context).join('\n\n');
-    result.prompts = {};
-    for (const [name, chars] of [['short', 1000], ['long', 4000]]) {
-      const messages = [
-        { role: 'system', content: 'Answer the question using only the context.' },
-        { role: 'user', content: `Context:\n${ctx.slice(0, chars)}\n\nQuestion: What is this text about?` },
-      ];
-      const runs = [];
-      for (let r = 0; r < 2; r++) {
-        const x = await page.call('generate', model, messages, 64);
-        runs.push({ promptTokens: x.promptTokens, completionTokens: x.completionTokens, firstTokenMs: x.firstTokenMs, decodeTokPerSec: (x.completionTokens - 1) / ((x.wallMs - x.firstTokenMs) / 1000) });
+    if (part === 'speed') {
+      // first token and writing speed on fixed prompts (the same texts as the speed suite)
+      const ctx = sq[3].paragraphs.map((p) => p.context).join('\n\n');
+      result.prompts = {};
+      for (const [name, chars] of [['short', 1000], ['long', 4000]]) {
+        const messages = [
+          { role: 'system', content: 'Answer the question using only the context.' },
+          { role: 'user', content: `Context:\n${ctx.slice(0, chars)}\n\nQuestion: What is this text about?` },
+        ];
+        const runs = [];
+        for (let r = 0; r < 2; r++) {
+          const x = await page.call('generate', model, messages, 64);
+          runs.push({ promptTokens: x.promptTokens, completionTokens: x.completionTokens, firstTokenMs: x.firstTokenMs, decodeTokPerSec: (x.completionTokens - 1) / ((x.wallMs - x.firstTokenMs) / 1000) });
+        }
+        result.prompts[name] = { runs, promptTokens: runs[0].promptTokens, firstTokenMs: median(runs.map((x) => x.firstTokenMs)), decodeTokPerSec: median(runs.map((x) => x.decodeTokPerSec)) };
+        log(`llm ${model}: ${name} prompt (${runs[0].promptTokens} tok) first token ${Math.round(result.prompts[name].firstTokenMs)} ms, ${result.prompts[name].decodeTokPerSec.toFixed(2)} tok/s`);
       }
-      result.prompts[name] = { runs, promptTokens: runs[0].promptTokens, firstTokenMs: median(runs.map((x) => x.firstTokenMs)), decodeTokPerSec: median(runs.map((x) => x.decodeTokPerSec)) };
-      log(`llm ${model}: ${name} prompt (${runs[0].promptTokens} tok) first token ${Math.round(result.prompts[name].firstTokenMs)} ms, ${result.prompts[name].decodeTokPerSec.toFixed(2)} tok/s`);
-    }
-
-    // 3. reading accuracy: right paragraph given, short answer, gold text contained
-    result.reading = {};
-    for (const split of ['A', 'B']) {
+    } else if (part.startsWith('reading-')) {
+      // reading accuracy: right paragraph given, short answer, gold text contained
+      const split = part.slice(-1);
       const qs = readingQuestions(sq, split, reading);
       const per = [];
       const t0 = performance.now();
@@ -96,12 +106,10 @@ export async function llmModelSuite(E, tree, provider, model, { log = () => {}, 
         const x = await page.call('generate', model, [{ role: 'system', content: 'Answer with a short phrase copied from the context.' }, { role: 'user', content: `Context:\n${q.context}\n\nQuestion: ${q.question}` }], 24);
         per.push(contains(q.answers, x.text) ? 1 : 0);
       }
-      result.reading[split] = { n: qs.length, accuracy: per.reduce((s, v) => s + v, 0) / qs.length, per, ids: qs.map((q) => q.id), seconds: (performance.now() - t0) / 1000 };
-      log(`llm ${model}: reading ${split} ${(100 * result.reading[split].accuracy).toFixed(1)}% of ${qs.length}`);
-    }
-
-    // 4. complete answers through the pipeline with the tree's in-browser settings and this model
-    if (col) {
+      result.reading = { split, n: qs.length, accuracy: per.reduce((s, v) => s + v, 0) / qs.length, per, ids: qs.map((q) => q.id), seconds: (performance.now() - t0) / 1000 };
+      log(`llm ${model}: reading ${split} ${(100 * result.reading.accuracy).toFixed(1)}% of ${qs.length}`);
+    } else if (part === 'answers' && col) {
+      // complete answers through the pipeline with the tree's in-browser settings and this model
       await page.call('loadSets', packSets(col));
       const picks = questions(col, 'B', 211).slice(0, rag);
       const answers = [];
@@ -120,6 +128,6 @@ export async function llmModelSuite(E, tree, provider, model, { log = () => {}, 
     await srv.close();
     await mirror.close();
   }
-  log(`llm ${model}: peak browser memory ${result.peakMemoryMb} MB`);
+  log(`llm ${model} [${part}]: peak browser memory ${result.peakMemoryMb} MB`);
   return result;
 }
