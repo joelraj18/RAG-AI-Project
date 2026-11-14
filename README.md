@@ -97,8 +97,8 @@ The interface follows a clean, store-like design language:
 
 ## Performance: before and after
 
-This round audited how well the app finds and answers, and how fast its local models run, then fixed what the
-measurements showed. Every change, with its numbers, is also listed in the [changelog](CHANGELOG.md). Every number
+Two rounds of work audited how well the app finds and answers, and how fast its local models run, then fixed what
+the measurements showed. Every change, with its numbers, is also listed in the [changelog](CHANGELOG.md). Every number
 below comes from the same benchmark code run on the old version (`main` before this change) and the new one, on public
 datasets and in a real browser.
 
@@ -191,7 +191,7 @@ app's pipeline with its in-browser settings.
 
 ### Tried, no gain
 
-These ideas were measured on the tuning data and left out, so the app stays simpler:
+These ideas were measured and left out, so the app stays simpler (the [changelog](CHANGELOG.md) has the rest):
 
 - **A lighter stemmer** (plurals and a few endings only) did about as well as Porter in keyword search: 0.697 against
   0.701 nDCG@10 on SciFact's training questions, and 80.6% against 79.9% right page first on SQuAD half A.
@@ -210,6 +210,11 @@ These ideas were measured on the tuning data and left out, so the app stays simp
   most of the SQuAD gain (80.3%) and loses less on SciFact (0.726), so that is what the reranker does now. On
   SciFact's test questions it still scores below search alone (0.725 against 0.747), which is why it stays off by
   default.
+- **A smaller fusion constant** (RRF k = 3 instead of 60) helped on the tuning data (SQuAD half A right page first
+  73.8% → 75.1%, SciFact train 0.744 → 0.752), but on held-out data the gains were too small to tell from noise
+  (SQuAD half B +0.1 points, SciFact test +0.4, NFCorpus +0.2; every 95% interval includes zero).
+- **A looser claim check** (word overlap 0.5 instead of 0.6) separated supported from contradicted training claims
+  better, but on held-out claims it let 16.4 points more contradicted claims through and separated them worse.
 
 ### How it was measured
 
