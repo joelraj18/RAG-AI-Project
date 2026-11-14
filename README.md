@@ -95,6 +95,181 @@ The interface follows a clean, store-like design language:
 **Guidance:** every option carries ⭐ Recommended / ⚡ Fastest / 💾 Lightest / 🎯 Best quality / 🔒 Private badges, and the
 **Quick profile** setting (Fast · Balanced · Best quality) applies a whole set of options in one click.
 
+## Performance: before and after
+
+Two rounds of work audited how well the app finds and answers, and how fast its local models run, then fixed what
+the measurements showed. Every change, with its numbers, is also listed in the [changelog](CHANGELOG.md). Every number
+below comes from the same benchmark code run on the old version (`main` before this change) and the new one, on public
+datasets and in a real browser.
+
+### What changed, in plain words
+
+<!-- plain:start -->
+| What | Before | After | Measured |
+|---|---|---|---|
+| **Search understands word forms** | Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words. | A Porter stemmer, accent folding and hyphen handling make them match. | Keyword search accuracy on SciFact 65.9% → **69.6%**, on unseen NFCorpus 31.2% → 32.3% |
+| **The answer comes first** | Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle. | The most relevant sentence comes first, and rare question words count more than common ones. | Answer in the first bullet 47.6% → **69.3%** |
+| **Wrong numbers and names are caught** | The claim check only counted shared words, so a sentence with one wrong number or name still passed. | Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence. | Swapped facts caught 2.1% → **60.1%**, true sentences passed 100.0%. On real science claims it is stricter both ways: contradicted claims pass 50.0% → 34.4%, supported ones 71.8% → 58.3% |
+| **The reranker, measured on both kinds of text** | It replaced the search order, which helped everyday questions but made scientific ones worse. | Its order is now combined with the search order. It stays off by default and is part of the Best quality profile, because on scientific text search alone still scores higher. | SciFact with reranker 69.2% → **72.5%** (search alone 74.7%); SQuAD half A right page first 73.7% → 80.3% with it (tuning data) |
+| **Local models use several cores** | Embeddings, the reranker and the in-browser LLM ran on a single CPU thread. | Cross-origin isolation (Space headers, a small service worker on GitHub Pages) lets them use every core, and documents are embedded in batches of similar length so less work goes to padding. | Indexing 4.2× faster, questions embedded 2.5× faster, the in-browser model's first token 3.8× sooner |
+| **Smaller downloads without a GPU** | Every device downloaded the 26.9 MB WebAssembly runtime built for WebGPU support. | Devices without WebGPU get the plain 14.3 MB runtime. | 12.6 MB less to download on first use |
+| **In-browser answers read less** | The in-browser model read every retrieved passage in full and then ran a second full pass as its own judge. | Passages are trimmed to their most relevant sentences, and the slow self-judge is off by default when you pick the in-browser model (the checks that need no LLM still run). | Full answer 12.0× faster with every core, and 3.7× faster on one thread |
+<!-- plain:end -->
+
+Smaller fixes that are not timed above:
+
+- **Models load ahead of time.** Choosing the in-browser model, or opening a collection with embeddings, starts the
+  download in the background, so the first question no longer waits for it.
+- **Honest download sizes.** The model list shows what your device will fetch. Qwen2.5 0.5B said about 400 MB, but
+  without WebGPU it downloads 786 MB.
+- **Answer similarity measures the answer itself.** It used to embed the answer as if it were a question (bge-small
+  adds a search prefix to questions) and stored it in the question cache.
+- **Each model loads once.** Two requests that arrive while a model is still loading (for example the background
+  preload and the first question) used to each start their own copy: twice the download and memory, and for the
+  in-browser model an out-of-memory error. They now share one load.
+- **Prompt token counts for the in-browser model** were missing after a change in transformers.js 4; answers show
+  them again.
+- **Llama 3.2 1B** now points at its renamed repository instead of a redirect.
+
+### Results
+
+How to read these: every quality number is a share of questions, sentences or claims, measured only on data that
+was never used for tuning. The search rows on SciFact and NFCorpus use nDCG@10, a 0 to 100% score of how high the relevant documents
+rank. **Bold** marks a result that is better with 95% confidence; the interval is in the last column. Speed is
+measured in headless Chromium without a GPU, so it shows the WebAssembly path every device can fall back to.
+
+<!-- bench:start -->
+<!-- Generated by `npm run bench:report` from bench/results. Do not edit by hand. -->
+![Answer and retrieval quality, before and after](docs/benchmarks/quality.svg)
+
+| What we measured | Before | After | Change (95% CI) |
+|---|---|---|---|
+| Right page ranked first (SQuAD, app defaults) | 76.7% | 76.5% | −0.2 pts (−1.2 to +0.5) |
+| Right page in the top 4 (SQuAD, app defaults) | 93.4% | **94.2%** | +0.8 pts (+0.1 to +1.3) |
+| Answer text reaches the prompt (SQuAD, retrieved context) | 94.1% | 94.4% | +0.3 pts (0.0 to +0.9) |
+| Answer in the first bullet (SQuAD, no-LLM answer) | 47.6% | **69.3%** | +21.6 pts (+20.1 to +23.8) |
+| Answer in the top 3 bullets (SQuAD, no-LLM answer) | 74.4% | **80.4%** | +6.1 pts (+5.1 to +7.4) |
+| Keyword search accuracy (SciFact nDCG@10) | 65.9% | **69.6%** | +3.7 pts (+1.6 to +5.8) |
+| Hybrid search accuracy (SciFact nDCG@10, app default) | 71.6% | **74.7%** | +3.0 pts (+1.2 to +4.8) |
+| Hybrid search with reranker (SciFact nDCG@10, Best quality profile) | 69.2% | **72.5%** | +3.3 pts (+1.5 to +4.9) |
+| Keyword search, unseen data (NFCorpus nDCG@10, never used for tuning) | 31.2% | 32.3% | +1.2 pts (0.0 to +2.3) |
+| Hybrid search, unseen data (NFCorpus nDCG@10, never used for tuning) | 35.7% | **36.6%** | +0.9 pts (+0.2 to +1.7) |
+| Swapped facts caught (claim check, SQuAD sentences) | 2.1% | **60.1%** | +57.9 pts (+56.6 to +59.2) |
+| True sentences passed (claim check, SQuAD sentences) | 100.0% | 100.0% | 0.0 pts (0.0 to 0.0) |
+| Near misses passed (claim check, true sentence against the wrong paragraph, lower is better) | 2.2% | 2.1% | −0.1 pts (−0.7 to +0.7) |
+| Supported claims passed (claim check, SciFact claims, higher is better) | 71.8% | 58.3% | −13.4 pts (−20.4 to −6.5) |
+| Contradicted claims passed (claim check, SciFact claims, lower is better) | 50.0% | **34.4%** | −15.6 pts (−23.0 to −8.2) |
+
+![Local model speed-ups](docs/benchmarks/speed.svg)
+
+| What we timed | Before, one thread (as served) | Before, isolated | After, one thread | After, isolated (as served) | Faster by |
+|---|---|---|---|---|---|
+| First document, from a cold start (s) | 15.3 | 10.4 | 13.0 | **4.5** | 3.4× |
+| Indexing a document (chunks/s) | 2.1 | 4.0 | 2.5 | **8.7** | 4.2× |
+| Embedding a question (ms) | 37 | 25 | 33 | **15** | 2.5× |
+| Reranking 20 passages (s) | 3.60 | 1.86 | 3.52 | **0.95** | 3.8× |
+| In-browser LLM, first token (s) | 35.4 | 18.0 | 34.2 | **9.4** | 3.8× |
+| In-browser LLM, writing speed (tokens/s) | 1.1 | 2.0 | 1.1 | **3.3** | 3.1× |
+| In-browser LLM, full answer (s) | 241.5 | 133.0 | 64.9 | **20.1** | 12.0× |
+<!-- bench:end -->
+
+The speed columns: **as served** means how each version reaches users. The old site was not cross-origin isolated, so
+its models ran on one thread; the new one is isolated through the Space headers or the service worker. **Before,
+isolated** is the old code with the new headers (ONNX Runtime then picks 2 threads on this machine), and **After, one
+thread** is the new code where isolation is not possible, such as the copy of the Space embedded on huggingface.co.
+Full answers also differ in their in-browser defaults: the old ones judged every answer with a second LLM pass and
+allowed 512 new tokens, the new ones skip that pass, allow 320 and trim the context.
+
+### In-browser models compared
+
+Every candidate was run alone in a fresh browser through the app's own model worker, on the CPU (4 vCPU, no GPU,
+4-bit weights), fastest first token first. **Reading** gives each model 100 held-out SQuAD questions with the right
+paragraph: "answer found" is the share of replies that contain the expected answer, and F1 (the usual SQuAD score)
+also penalises extra words, so a model that answers in full sentences finds more but scores a lower F1. **Full
+answer** runs 24 questions through the app's pipeline with its in-browser settings. Qwen2.5 0.5B stays the default:
+it is the fastest, and LFM2 350M's extra hits come with answers that take six times longer. The models slower than
+the default at the first token were measured for speed only.
+
+<!-- models:start -->
+<!-- Generated by `npm run bench:report` from bench/results/models (one file per model and part). Do not edit by hand. -->
+| In-browser model (licence) | Download without WebGPU | First token, ~930-token prompt | Writing speed | Reading: answer found / F1 (SQuAD half B) | Full answer: median time, answer found |
+|---|---|---|---|---|---|
+| Qwen2.5 0.5B Instruct **(default)** (Apache 2.0) | 807 MB | 10.1 s | 3.3 tokens/s | 57% / 57, 6 tokens per answer | 20 s, 42% of 24 |
+| LFM2 350M (LFM Open License v1.0) | 312 MB | 11.6 s | 2.3 tokens/s | 69% / 25, 22 tokens per answer (found: +12.0 pts vs Qwen, +2.0 to +23.0) | 124 s, 42% of 24 |
+| Gemma 3 270M (Gemma terms of use) | 358 MB | 13.0 s | 2.9 tokens/s | not measured (slower than the default) | not measured |
+| LFM2 700M (LFM Open License v1.0) | 577 MB | 26.2 s | 0.9 tokens/s | not measured (slower than the default) | not measured |
+| SmolLM2 360M Instruct (Apache 2.0) | 404 MB | 36.3 s | 2.8 tokens/s | not measured (slower than the default) | not measured |
+<!-- models:end -->
+
+### Tried, no gain
+
+These ideas were measured and left out, so the app stays simpler (the [changelog](CHANGELOG.md) has the rest):
+
+- **A lighter stemmer** (plurals and a few endings only) did about as well as Porter in keyword search: 0.697 against
+  0.701 nDCG@10 on SciFact's training questions, and 80.6% against 79.9% right page first on SQuAD half A.
+- **Counting keyword search double in hybrid search** helped SQuAD half A (right page first 74.5% → 78.4%) but hurt
+  SciFact's training questions (0.744 → 0.734), so both searches still count the same.
+- **More candidates before fusion** (100 per search instead of 20) changed nothing on SQuAD half A (74.6% against
+  74.5% right page first).
+- **Cutting MiniLM's input at 256 word pieces**, the length it was trained on, gave the same accuracy (0.654 against
+  0.653 nDCG@10 on SciFact's training questions) with slightly lower recall, so the simpler code stayed.
+- **Shorter answers without an LLM** (5 sentences instead of 8) were 22% shorter, but held the answer less often
+  (84.4% against 85.9% on SQuAD half A).
+- **8-bit Qwen on CPU** (instead of 4-bit) wrote 2.1× faster and is a third smaller to download, but its correct short
+  answers fell from 67.5% to 32.5% on 40 SQuAD half A questions with the right paragraph given, so 4-bit stays.
+- **Letting the reranker set the order alone** raised right page first from 73.7% to 82.3% on 300 SQuAD half A
+  questions, but on 150 SciFact training questions nDCG@10 fell from 0.733 to 0.697. Combining both orders keeps
+  most of the SQuAD gain (80.3%) and loses less on SciFact (0.726), so that is what the reranker does now. On
+  SciFact's test questions it still scores below search alone (0.725 against 0.747), which is why it stays off by
+  default.
+- **A smaller fusion constant** (RRF k = 3 instead of 60) helped on the tuning data (SQuAD half A right page first
+  73.8% → 75.1%, SciFact train 0.744 → 0.752), but on held-out data the gains were too small to tell from noise
+  (SQuAD half B +0.1 points, SciFact test +0.4, NFCorpus +0.2; every 95% interval includes zero).
+- **A looser claim check** (word overlap 0.5 instead of 0.6) separated supported from contradicted training claims
+  better, but on held-out claims it let 16.4 points more contradicted claims through and separated them worse.
+
+### How it was measured
+
+- **Datasets** (downloaded by the benchmark, not stored in this repository):
+  - [SciFact](https://github.com/allenai/scifact) via [BEIR](https://github.com/beir-cellar/beir): 5,183 scientific
+    abstracts, 300 test and 809 training questions with known relevant documents.
+  - SciFact claims: 338 claim and evidence pairs (development set) labelled supported or contradicted.
+  - [SQuAD v1.1](https://rajpurkar.github.io/SQuAD-explorer/) development set, loaded as one collection of 48 Wikipedia
+    articles (643 pages, 1,413 chunks) through the app's own pipeline, with 10,570 questions whose answer page is known.
+  - [NFCorpus](https://www.cl.uni-heidelberg.de/statnlpgroup/nfcorpus/) (medical, 3,633 documents, 323 test questions)
+    as a final check that was never used while tuning.
+  - Each dataset keeps its own licence; see the linked pages.
+- **No tuning on the reported data.** Every setting was chosen on SciFact's training questions, the SciFact training
+  claims and one half of the SQuAD questions (split by a hash of the question id). The tables report only the other
+  half and SciFact's test questions. One early prototype of the tokenizer was looked at on SciFact test before this
+  rule was set; the final choice was confirmed on the training splits and on the untouched NFCorpus check.
+- **Real app code, real browser.** The harness (`bench/`) loads the old and the new `src/lib` and runs retrieval and
+  answers through the app's own `runQuestion`. All model outputs come from the app's own Web Workers in headless
+  Chromium (WebAssembly, no GPU), served from a local mirror of the model files.
+- **Uncertainty.** Changes in quality come with a 95% confidence interval from a paired bootstrap over the questions.
+  Speed is the median of repeated runs after a warm-up, with the old and new builds run in turn.
+- **What was timed.** Indexing 10 SQuAD articles (3 cold starts, each in a fresh browser profile), 40 question
+  embeddings, 10 reranks of 20 passages, the in-browser model (Qwen2.5 0.5B) on fixed prompts of about 240 and 940
+  tokens, and 8 complete answers with the settings each version gives you when you pick the in-browser model.
+- **Thread count.** Chosen by measurement on the test machine: 4 threads beat 3 and 2 both for embeddings (8.7, 7.0 and
+  5.0 passages per second) and for the in-browser LLM (3.0, 2.5 and 1.8 tokens per second), so the workers use every
+  core (up to 8).
+- **Hardware.** A 4 vCPU cloud machine (Intel Xeon at 2.3 GHz) with 15 GB of memory and no GPU. On a phone or a
+  fast laptop the absolute numbers will differ; the before and after ratios are what to compare. Both sides of the
+  speed table ran on the same machine. A re-run of the final code on a slower one (2.1 GHz,
+  `bench/results/rerun/`) came within 5 to 20%: 8.0 chunks/s indexing, 10.5 s to the first token, 22 s per answer.
+- **Caveats.** SQuAD-style Wikipedia questions appear in the training data of many embedding models, so the absolute
+  SQuAD numbers flatter semantic search; both versions use the same models, so the comparison is fair. The swapped
+  facts are made by changing one number or name in a true sentence, which is easier to catch than the mistakes a real
+  model makes; the SciFact claims rows show how the check does on claims written by people. In-browser answers were
+  only spot-checked: the expected answer appeared in 2 of 8 answers both before and after.
+- **Not measured here:** Ollama and other local servers (the compact context applies to them, but none could run in the
+  test machine), WebGPU, and cloud LLM answers.
+
+Reproduce with `npm run bench` (needs `npx playwright-core install chromium` once, and about 1.1 GB of downloads,
+mostly the in-browser model), then `npm run bench:report` to rebuild these tables, the charts and the Learn page
+card. Results land in `bench/results/`, one file per suite, so an interrupted run picks up where it stopped.
+
 ## Which options should I choose?
 
 | Goal | Choose |
@@ -114,7 +289,7 @@ Free:
 | Provider | Setup | Data |
 |---|---|---|
 | **Extractive** (default) | none. Quotes the best sentences with citations; instant, but no LLM judge | stays on device |
-| **In-browser** | none (0.4 to 1.1 GB downloaded once); use WebGPU (Chrome, Edge) for usable speed | stays on device |
+| **In-browser** | none (0.5 to 1.7 GB downloaded once); fastest with WebGPU (Chrome, Edge), and without it Qwen2.5 0.5B answers in about 20 s on 4 CPU cores when the page is multi-threaded (see Deploy) | stays on device |
 | **Hugging Face Inference** ⭐ | free token from <https://huggingface.co/settings/tokens> (enable *Inference Providers*) | excerpts sent to Hugging Face |
 | **Local or custom endpoint** | e.g. `OLLAMA_ORIGINS=* ollama serve`, then `ollama pull mistral:7b-instruct` | stays on device for `localhost`, otherwise sent to that server |
 
@@ -236,7 +411,7 @@ src/
 | Vector search | Full sort of all scores per query | Bounded min-heap top-k; query embeddings cached |
 | Ingest | Cleaning, chunking and BM25 on the UI thread (freezes on big books) | In a Web Worker; BM25 uses compact typed arrays |
 | Page viewer | Re-parsed the whole PDF for every page | Open documents cached (LRU of 2) |
-| Deploy size | ~31 MB (unused 26 MB onnxruntime wasm bundled) | **4.5 MB** (wasm loaded from jsDelivr by transformers.js) |
+| Deploy size | ~31 MB (unused 26 MB onnxruntime wasm bundled) | **4.9 MB** (wasm loaded from jsDelivr by transformers.js) |
 | Chunk quality | No section context; TOC pages and duplicates indexed | Section-aware chunks, contextual headers for embeddings, TOC/duplicate filtering |
 | Judge cost | 2 LLM calls per answer | 1 combined call by default (strict 2-call mode optional) |
 | Scope | Medical-only prompts and demo | Any document; 6 presets; generic "Guide to RAG" demo |
@@ -268,6 +443,12 @@ One-time setup: add the repository secret `HF_TOKEN` (an HF token with write acc
 example `your-name/rag-ai-studio`). To publish by hand:
 `npm run build && HF_TOKEN=hf_xxx HF_SPACE=you/rag-ai-studio python scripts/push_to_hf_space.py dist`.
 
+**Multi-threaded local models** need a cross-origin isolated page (the COOP and COEP headers). `npm run dev` and
+`npm run preview` send them. The Space sends them too, but only on its direct `*.static.hf.space` address; the copy
+embedded on huggingface.co is not isolated and runs the local models on one thread. GitHub Pages cannot send headers,
+so a small service worker (`public/coi-sw.js`) adds them to the site's own files from the next page load on. It never
+touches model downloads or LLM requests and caches nothing; open the site with `?coi=0` to remove it.
+
 ## Roadmap
 
 1. **OCR for scanned PDFs** (tesseract.js, loaded lazily) so image-only pages can be indexed.
@@ -288,17 +469,19 @@ example `your-name/rag-ai-studio`). To publish by hand:
   Use context relevance and the Evaluation Lab's hit@k to catch that.
 - Answers support research and decisions; they don't replace professional judgement. Check the cited pages.
 
-## You can get a free Hugging Face token in a couple of minutes.
+## Get a free Hugging Face token
+
+A free token takes a couple of minutes:
 
 - Create an account at https://huggingface.co/join, or log in if you have one. Verify your email, because token creation can be blocked until you do.
 - Open the tokens page: click your profile picture (top right) → Settings → Access Tokens, or go straight to https://huggingface.co/settings/tokens.
 - Create the token: click + Create new token and fill it in:
-Token type: Fine-grained.
-Name: something recognisable, like RAG AI Studio, so you can revoke it on its own later.
-Permissions: tick only "Make calls to Inference Providers" (under Inference). Leave everything else unticked; the app doesn't need repo or write access.
+  - Token type: Fine-grained.
+  - Name: something recognisable, like RAG AI Studio, so you can revoke it on its own later.
+  - Permissions: tick only "Make calls to Inference Providers" (under Inference). Leave everything else unticked; the app doesn't need repo or write access.
 - Click Create token.
 - Copy it right away. It starts with hf_ and is shown in full only once. If you lose it, create a new one.
 - Use it in the app:
-Go to Settings → Language model → Hugging Face Inference, or just start a chat, since the token box appears at the top.
-Paste the token into the masked field, then click Test connection in Settings, or Use token in the chat.
-It's kept only in that tab's memory, so you paste it again after a reload. If your browser offers to save it as a password, choose Never.
+  - Go to Settings → Language model → Hugging Face Inference, or just start a chat, since the token box appears at the top.
+  - Paste the token into the masked field, then click Test connection in Settings, or Use token in the chat.
+  - It's kept only in that tab's memory, so you paste it again after a reload. If your browser offers to save it as a password, choose Never.

@@ -1,0 +1,221 @@
+{
+ "generated": "2026-11-14",
+ "hardware": "Intel Xeon @ 2.30GHz, 4 vCPU, no GPU",
+ "quality": [
+  {
+   "id": "page1",
+   "label": "Right page ranked first",
+   "note": "SQuAD, app defaults",
+   "before": 0.766566265060241,
+   "after": 0.764683734939759,
+   "delta": -0.0018825301204819277,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "pageK",
+   "label": "Right page in the top 4",
+   "note": "SQuAD, app defaults",
+   "before": 0.9341114457831325,
+   "after": 0.9416415662650602,
+   "delta": 0.007530120481927711,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "ctx",
+   "label": "Answer text reaches the prompt",
+   "note": "SQuAD, retrieved context",
+   "before": 0.9408885542168675,
+   "after": 0.9442771084337349,
+   "delta": 0.00338855421686747,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "first",
+   "label": "Answer in the first bullet",
+   "note": "SQuAD, no-LLM answer",
+   "before": 0.4762801204819277,
+   "after": 0.6927710843373494,
+   "delta": 0.2164909638554217,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "top3",
+   "label": "Answer in the top 3 bullets",
+   "note": "SQuAD, no-LLM answer",
+   "before": 0.7435993975903614,
+   "after": 0.8042168674698795,
+   "delta": 0.06061746987951807,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "kw",
+   "label": "Keyword search accuracy",
+   "note": "SciFact nDCG@10",
+   "before": 0.6594637002287916,
+   "after": 0.6961214406482902,
+   "delta": 0.03665733333333335,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "hyb",
+   "label": "Hybrid search accuracy",
+   "note": "SciFact nDCG@10, app default",
+   "before": 0.7163255792046127,
+   "after": 0.7466082385103368,
+   "delta": 0.030283333333333325,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "rr",
+   "label": "Hybrid search with reranker",
+   "note": "SciFact nDCG@10, Best quality profile",
+   "before": 0.6921304845222318,
+   "after": 0.7249523216801252,
+   "delta": 0.03282100000000002,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "nfKw",
+   "label": "Keyword search, unseen data",
+   "note": "NFCorpus nDCG@10, never used for tuning",
+   "before": 0.31155953518618434,
+   "after": 0.3234846938288194,
+   "delta": 0.011926006191950464,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "nfHyb",
+   "label": "Hybrid search, unseen data",
+   "note": "NFCorpus nDCG@10, never used for tuning",
+   "before": 0.3574076077431474,
+   "after": 0.3663042274087331,
+   "delta": 0.008894117647058823,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "swap",
+   "label": "Swapped facts caught",
+   "note": "claim check, SQuAD sentences",
+   "before": 0.021406727828746176,
+   "after": 0.6005351681957186,
+   "delta": 0.5791284403669725,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "true",
+   "label": "True sentences passed",
+   "note": "claim check, SQuAD sentences",
+   "before": 1,
+   "after": 1,
+   "delta": 0,
+   "lower": false,
+   "card": false
+  },
+  {
+   "id": "near",
+   "label": "Near misses passed",
+   "note": "claim check, true sentence against the wrong paragraph, lower is better",
+   "before": 0.022265246853823813,
+   "after": 0.021297192642787996,
+   "delta": -0.000968054211035818,
+   "lower": true,
+   "card": false
+  },
+  {
+   "id": "sciSup",
+   "label": "Supported claims passed",
+   "note": "claim check, SciFact claims, higher is better",
+   "before": 0.7175925925925926,
+   "after": 0.5833333333333334,
+   "delta": -0.13425925925925927,
+   "lower": false,
+   "card": true
+  },
+  {
+   "id": "sciCon",
+   "label": "Contradicted claims passed",
+   "note": "claim check, SciFact claims, lower is better",
+   "before": 0.5,
+   "after": 0.3442622950819672,
+   "delta": -0.1557377049180328,
+   "lower": true,
+   "card": true
+  }
+ ],
+ "speed": [
+  {
+   "id": "cold",
+   "label": "First document, from a cold start",
+   "unit": "s",
+   "before": 15.27,
+   "after": 4.484604999999516,
+   "factor": 3.404982155619424,
+   "higher": false
+  },
+  {
+   "id": "index",
+   "label": "Indexing a document",
+   "unit": "chunks/s",
+   "before": 2.0950429843647327,
+   "after": 8.727427773873337,
+   "factor": 4.165751175038398,
+   "higher": true
+  },
+  {
+   "id": "query",
+   "label": "Embedding a question",
+   "unit": "ms",
+   "before": 37,
+   "after": 14.93999999947846,
+   "factor": 2.476572958587124,
+   "higher": false
+  },
+  {
+   "id": "rerank",
+   "label": "Reranking 20 passages",
+   "unit": "s",
+   "before": 3.5997999999998136,
+   "after": 0.947609999999404,
+   "factor": 3.7988201897426976,
+   "higher": false
+  },
+  {
+   "id": "first",
+   "label": "In-browser LLM, first token",
+   "unit": "s",
+   "before": 35.43789999999944,
+   "after": 9.419020000001415,
+   "factor": 3.7623765529741005,
+   "higher": false
+  },
+  {
+   "id": "decode",
+   "label": "In-browser LLM, writing speed",
+   "unit": "tokens/s",
+   "before": 1.0692846318737108,
+   "after": 3.2619343474551674,
+   "factor": 3.050576292057307,
+   "higher": true
+  },
+  {
+   "id": "answer",
+   "label": "In-browser LLM, full answer",
+   "unit": "s",
+   "before": 241.49529999999982,
+   "after": 20.132520000001417,
+   "factor": 11.995284246581294,
+   "higher": false
+  }
+ ]
+}

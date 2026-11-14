@@ -1,0 +1,92 @@
+{
+ "meta": {
+  "label": "models",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "2d232e1",
+  "dirty": false,
+  "date": "2026-11-14T09:35:43.979Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "llm-onnx-community_LFM2-700M-ONNX-speed",
+  "seconds": 391
+ },
+ "result": {
+  "model": "onnx-community/LFM2-700M-ONNX",
+  "part": "speed",
+  "loadMs": 26383.270000001416,
+  "downloadBytes": 577223696,
+  "status": {
+   "device": "wasm",
+   "threads": 4,
+   "build": "plain",
+   "dtype": "q4"
+  },
+  "prompts": {
+   "short": {
+    "runs": [
+     {
+      "promptTokens": 240,
+      "completionTokens": 65,
+      "firstTokenMs": 6303.154999999329,
+      "decodeTokPerSec": 0.7932975283452011
+     },
+     {
+      "promptTokens": 240,
+      "completionTokens": 65,
+      "firstTokenMs": 7231.444999998435,
+      "decodeTokPerSec": 0.8172280874653707
+     }
+    ],
+    "promptTokens": 240,
+    "firstTokenMs": 7231.444999998435,
+    "decodeTokPerSec": 0.8172280874653707
+   },
+   "long": {
+    "runs": [
+     {
+      "promptTokens": 918,
+      "completionTokens": 65,
+      "firstTokenMs": 26168.365000000224,
+      "decodeTokPerSec": 0.858226770734706
+     },
+     {
+      "promptTokens": 918,
+      "completionTokens": 65,
+      "firstTokenMs": 21690.769999999553,
+      "decodeTokPerSec": 0.9201321683597508
+     }
+    ],
+    "promptTokens": 918,
+    "firstTokenMs": 26168.365000000224,
+    "decodeTokPerSec": 0.9201321683597508
+   }
+  },
+  "peakMemoryMb": 2181
+ }
+}

@@ -101,6 +101,18 @@ export function vectorsReady(doc, kb) {
   return !!kb?.vectors && kb.vectors.count >= kb.chunks.length && kb.vectors.model === doc.embedModel;
 }
 
+// Chunks are embedded in windows of WINDOW batches. Within a window they are sorted by length,
+// so each batch pads to a similar length instead of to the longest chunk of a random mix.
+const WINDOW = 4;
+
+/** Batches of row indices (0..lengths.length-1), shortest texts first, each at most `size` long. */
+export function batchPlan(lengths, size) {
+  const order = lengths.map((_, i) => i).sort((a, b) => lengths[a] - lengths[b] || a - b);
+  const out = [];
+  for (let i = 0; i < order.length; i += size) out.push(order.slice(i, i + size));
+  return out;
+}
+
 /** Background embedding job; saves completed shards as it goes and resumes after reloads. */
 export class EmbedJob {
   constructor(doc, { onProgress, onDone, onError }) {
@@ -122,21 +134,32 @@ export class EmbedJob {
       let elapsed = d.embedMs || 0;
       while (this.running && done < n) {
         const batchSize = embedDevice === 'webgpu' ? 64 : 16;
-        const batch = kb.chunks.slice(done, done + batchSize);
+        const end = Math.min(n, done + batchSize * WINDOW);
+        const texts = kb.chunks.slice(done, end).map((c) => embeddingText(d.name, c));
         const t0 = performance.now();
-        const { dim, data } = await embedTexts(d.embedModel, batch.map((c) => embeddingText(d.name, c)));
-        if (!this.running) break;
-        if (!v || v.q.length !== n * dim) {
-          v = { q: new Int8Array(n * dim), scales: new Float32Array(n), dim, count: 0, model: d.embedModel };
-          kb.vectors = v;
+        let stopped = false;
+        for (const rows of batchPlan(texts.map((t) => t.length), batchSize)) {
+          const { dim, data } = await embedTexts(d.embedModel, rows.map((r) => texts[r]));
+          if (!this.running) {
+            stopped = true;
+            break;
+          }
+          if (!v || v.q.length !== n * dim) {
+            v = { q: new Int8Array(n * dim), scales: new Float32Array(n), dim, count: done, model: d.embedModel };
+            kb.vectors = v;
+          }
+          const { q, scales } = quantize(data, dim);
+          rows.forEach((r, i) => {
+            v.q.set(q.subarray(i * dim, (i + 1) * dim), (done + r) * dim);
+            v.scales[done + r] = scales[i];
+          });
         }
-        const { q, scales } = quantize(data, dim);
-        v.q.set(q, done * dim);
-        v.scales.set(scales, done);
-        done += batch.length;
+        if (stopped) break;
+        // the whole window is committed at once, so a resumed job never skips rows
+        done = end;
         v.count = done;
         elapsed += performance.now() - t0;
-        Object.assign(d, { embedDone: done, embedMs: elapsed, dim });
+        Object.assign(d, { embedDone: done, embedMs: elapsed, dim: v.dim });
         this.onProgress?.({ done, total: n, elapsedMs: elapsed, rate: done / (elapsed / 1000), device: embedDevice });
         while (done - saved >= SHARD) {
           await this.saveShard(v, saved, saved + SHARD);

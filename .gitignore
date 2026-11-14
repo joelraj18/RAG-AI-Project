@@ -5,3 +5,8 @@ coverage
 .env*
 .DS_Store
 npm-debug.log*
+
+# benchmark harness
+bench/.cache
+bench-page
+bench-dist

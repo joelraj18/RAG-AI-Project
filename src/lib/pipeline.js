@@ -1,4 +1,5 @@
-import { retrieve, formatContext, contextTokens, sourceLabel } from './retrieve.js';
+import { retrieve, formatContext, contextTokens, sourceLabel, compactContext } from './retrieve.js';
+import { globalStats } from './bm25.js';
 import { generate, extractiveAnswer } from './llm.js';
 import { heuristicEvaluation, parseScore, parseJustification, parseCombinedJudge, confidence } from './evaluate.js';
 import {
@@ -16,11 +17,14 @@ import {
   fill,
 } from './prompts.js';
 import { preset } from './presets.js';
-import { embedQuery } from './workers.js';
+import { embedQuery, embedTexts } from './workers.js';
 import { cosine } from './quant.js';
 import { vectorsReady } from './kb.js';
 import { uid } from './text.js';
 import { PROVIDERS, keyModelOf, dataClass } from './providers.js';
+
+/** The in-browser model or an OpenAI-compatible server on this machine (Ollama, LM Studio). */
+export const isLocalModel = (s) => s.provider !== 'extractive' && dataClass(s) === 'device';
 
 // One question -> (condense) -> (HyDE) -> retrieve -> (rerank) -> generate -> evaluate.
 // Every step is timed; `onUpdate` receives the growing record so the UI streams live.
@@ -83,6 +87,12 @@ async function llmText(settings, system, user, maxTokens, signal, purpose = 'oth
     signal,
   });
   return r.text.trim();
+}
+
+/** Rarity weight of each question word across the documents being searched (BM25 statistics). */
+export function collectionIdf(sets, question) {
+  const { N, df } = globalStats(sets.map((s) => s.kb.bm25), question);
+  return new Map([...df].map(([t, n]) => [t, Math.log(1 + (N - n + 0.5) / (n + 0.5))]));
 }
 
 export async function judge(settings, { question, context, answer, signal }) {
@@ -193,7 +203,12 @@ export async function runQuestion({ question, sets, settings: base, history = []
     Object.assign(rec, { sources: r.sources, effectiveMode: r.effectiveMode });
     rec.trace.retrieval = r.trace;
     rec.trace.searchQuery = searchQuery;
-    rec.trace.contextTokens = contextTokens(r.sources);
+    // local models (in-browser, Ollama on localhost) get a compacted context: prefill time on
+    // a local model grows with prompt length, cloud prompts are left as retrieved
+    const compact = llm && !c.vanilla && (settings.compactContext === true || (settings.compactContext === 'auto' && isLocalModel(settings)));
+    const shown = compact ? compactContext(r.sources, question, { idf: collectionIdf(sets, question), share: settings.compactShare || 0.5 }) : r.sources;
+    rec.trace.contextTokens = contextTokens(shown);
+    if (compact) rec.trace.compacted = { from: contextTokens(r.sources), to: rec.trace.contextTokens };
     if (r.rerankError) rec.trace.rerankError = r.rerankError;
     rec.phase = c.retrievalOnly ? 'done' : 'generating';
     rec.answer = '';
@@ -203,10 +218,10 @@ export async function runQuestion({ question, sets, settings: base, history = []
     const tGen = performance.now();
     let g;
     if (!llm) {
-      g = extractiveAnswer(question, r.sources);
+      g = extractiveAnswer(question, r.sources, { idf: collectionIdf(sets, question) });
       rec.answer = g.text;
     } else {
-      const messages = buildMessages(settings, docNames, r.sources, question, history, c.vanilla);
+      const messages = buildMessages(settings, docNames, shown, question, history, c.vanilla);
       rec.prompt = messages;
       g = await generate(settings, {
         purpose: c.vanilla ? 'vanilla' : 'answer',
@@ -236,26 +251,31 @@ export async function runQuestion({ question, sets, settings: base, history = []
     emit();
 
     const tEval = performance.now();
-    const heuristic = heuristicEvaluation({ question, answer: rec.answer, sources: r.sources });
+    const heuristic = heuristicEvaluation({ question, answer: rec.answer, sources: shown });
     rec.eval = { heuristic, judge: null };
-    // answer ↔ question semantic similarity (RAGAS-style answer relevance), free when embeddings exist
+    // answer ↔ question semantic similarity (RAGAS-style answer relevance), free when embeddings exist.
+    // The answer is embedded as a passage (no query prefix) and runs while the judge works.
     const embedSet = sets.find((s) => vectorsReady(s.doc, s.kb));
-    if (embedSet && rec.answer) {
-      try {
-        const [qa, an] = await Promise.all([embedQuery(embedSet.doc.embedModel, question), embedQuery(embedSet.doc.embedModel, rec.answer.slice(0, 1500))]);
-        heuristic.answerSimilarity = cosine(qa, an);
-      } catch {
-        /* embeddings unavailable, skip */
-      }
-    }
-    emit();
+    const similarity =
+      embedSet && rec.answer
+        ? Promise.all([embedQuery(embedSet.doc.embedModel, question), embedTexts(embedSet.doc.embedModel, [rec.answer.slice(0, 1500)])])
+            .then(([qa, an]) => {
+              heuristic.answerSimilarity = cosine(qa, an.data);
+            })
+            .catch(() => {
+              /* embeddings unavailable, skip */
+            })
+        : null;
     if (judgeOn) {
+      emit();
       try {
-        rec.eval.judge = await judge(settings, { question, context: formatContext(r.sources), answer: rec.answer, signal });
+        rec.eval.judge = await judge(settings, { question, context: formatContext(shown), answer: rec.answer, signal });
       } catch (e) {
         rec.eval.judgeError = String(e.message || e);
       }
     }
+    await similarity;
+    emit();
     add('evaluation', performance.now() - tEval);
     return { query: searchQuery, k, mode: r.effectiveMode, answer: rec.answer, eval: rec.eval, sources: r.sources, gen: rec.gen, prompt: rec.prompt };
   }

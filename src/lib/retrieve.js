@@ -3,7 +3,7 @@ import { searchVectors, rrf } from './vector.js';
 import { dequantizeRow, cosine } from './quant.js';
 import { embedQuery, rerank } from './workers.js';
 import { vectorsReady } from './kb.js';
-import { estimateTokens } from './text.js';
+import { estimateTokens, tokenize, splitSentences } from './text.js';
 
 // Retrieval over one or many documents.
 //  semantic – cosine similarity on embeddings (the notebook's Chroma "similarity")
@@ -17,8 +17,15 @@ const keyOf = (docId, idx) => `${docId}:${idx}`;
 
 export async function retrieve(sets, query, opts = {}) {
   const { mode = 'hybrid', k = 4, fetchK = 20, lambda = 0.5, useRerank = false, neighbors = false, contextBudget = 1800, semanticQuery } = opts;
+  // pool: candidates per list before fusion; weights: [semantic, keyword] list weights in RRF;
+  // rerankTop / rerankFuse / rerankMaxLength: how many candidates the cross-encoder scores, whether
+  // its order is fused with the first-stage order, and its input length. Fusing is the default:
+  // the cross-encoder (trained on web search) helps on everyday questions but hurt scientific
+  // text when it replaced the order outright (see the README's performance section).
+  // rrfK: the Reciprocal Rank Fusion constant (lower lets the top of each list count for more)
+  const { weights = [1, 1], rerankTop = fetchK, rerankFuse = true, rerankMaxLength, rrfK = 60 } = opts;
   const t = { queryEmbed: 0, search: 0, rerank: 0, expand: 0 };
-  const pool = Math.max(fetchK, k * 4);
+  const pool = opts.pool ?? Math.max(fetchK, k * 4);
 
   // 1. query embeddings, one per embedding model in use
   const sem = mode !== 'bm25' ? sets.filter((s) => vectorsReady(s.doc, s.kb)) : [];
@@ -72,20 +79,21 @@ export async function retrieve(sets, query, opts = {}) {
     }
     fused = list.map((x) => ({ ...x, scores: scoresOf(x) }));
   } else {
-    fused = rrf([semList, bm25List], 60, (x) => x.key).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
+    fused = rrf([semList, bm25List], rrfK, (x) => x.key, weights).map((x) => ({ ...x, scores: scoresOf(x, { rrf: x.score }) }));
     if (bm25Only) effective = 'hybrid (partial)';
   }
   t.search = performance.now() - t1;
 
   const textOf = (c) => sets.find((s) => s.doc.id === c.docId).kb.chunks[c.idx];
   // 3. optional cross-encoder rerank of the top candidates
-  let ranked = fused.slice(0, Math.max(k, useRerank ? fetchK : k));
+  let ranked = fused.slice(0, Math.max(k, useRerank ? rerankTop : k));
   let rerankError = null;
   if (useRerank && ranked.length > 1) {
     const t2 = performance.now();
     try {
-      const scores = await rerank(query, ranked.map((c) => textOf(c).text));
-      ranked = ranked.map((c, i) => ({ ...c, scores: { ...c.scores, rerank: scores[i] } })).sort((a, b) => b.scores.rerank - a.scores.rerank);
+      const scores = await rerank(query, ranked.map((c) => textOf(c).text), rerankMaxLength ? { maxLength: rerankMaxLength } : undefined);
+      const byRerank = ranked.map((c, i) => ({ ...c, scores: { ...c.scores, rerank: scores[i] } })).sort((a, b) => b.scores.rerank - a.scores.rerank);
+      ranked = rerankFuse ? rrf([byRerank, ranked], 60, (x) => x.key).map((x) => ({ ...x, scores: byRerank.find((y) => y.key === x.key).scores })) : byRerank;
     } catch (e) {
       rerankError = String(e.message || e);
     }
@@ -165,3 +173,41 @@ export function formatContext(sources) {
 
 export const contextTokens = (sources) => sources.reduce((s, c) => s + (c.tokens || estimateTokens(c.text || '')), 0);
 
+/**
+ * Query-focused compaction, used for local models whose prompt prefill time grows with prompt
+ * length: each passage keeps its most relevant sentences (plus the sentence after each) within
+ * `share` of its tokens, in their original order. Sentences already included from another
+ * passage (chunk overlaps) are dropped. `idf` weights rare question words more.
+ */
+export function compactContext(sources, question, { idf, share = 0.6, minTokens = 60 } = {}) {
+  const q = [...new Set(tokenize(question))];
+  const weight = (t) => idf?.get(t) ?? 1;
+  const seen = new Set();
+  const norm = (t) => t.replace(/\s+/g, ' ').trim().toLowerCase();
+  return sources.map((s) => {
+    const sents = splitSentences(s.text || '');
+    if (sents.length <= 2) {
+      sents.forEach((t) => seen.add(norm(t)));
+      return s;
+    }
+    const scored = sents.map((t, i) => {
+      const set = new Set(tokenize(t));
+      return { i, score: q.reduce((sum, x) => sum + (set.has(x) ? weight(x) : 0), 0) };
+    });
+    const budget = Math.max(minTokens, (s.tokens || estimateTokens(s.text)) * share);
+    const keep = new Set();
+    let used = 0;
+    for (const { i } of scored.sort((a, b) => b.score - a.score || a.i - b.i)) {
+      if (used >= budget) break;
+      for (const j of [i, i + 1]) {
+        if (j >= sents.length || keep.has(j) || seen.has(norm(sents[j]))) continue;
+        keep.add(j);
+        used += estimateTokens(sents[j]);
+      }
+    }
+    const kept = [...keep].sort((a, b) => a - b);
+    kept.forEach((j) => seen.add(norm(sents[j])));
+    const text = kept.map((j, n) => (n && j !== kept[n - 1] + 1 ? '… ' : '') + sents[j]).join(' ');
+    return { ...s, text, tokens: estimateTokens(text), compacted: true };
+  });
+}

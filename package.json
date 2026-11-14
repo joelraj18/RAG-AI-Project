@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src bench",
+    "bench": "node bench/run.mjs --label after --suites claims,squad,beir,holdout,speed",
+    "bench:report": "node bench/report.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -19,6 +21,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "playwright-core": "1.63.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"
