@@ -108,8 +108,8 @@ datasets and in a real browser.
 | What | Before | After | Measured |
 |---|---|---|---|
 | **Search understands word forms** | Keyword search treated *treatments* and *treatment*, *IL-6* and *IL 6*, or *café* and *cafe* as different words. | A Porter stemmer, accent folding and hyphen handling make them match. | Keyword search accuracy on SciFact 65.9% → **69.6%**, on unseen NFCorpus 31.2% → 32.3% |
-| **The answer comes first** | Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle. | The most relevant sentence comes first, and rare question words count more than common ones. | Answer in the first bullet 47.6% → **67.0%** |
-| **Wrong numbers and names are caught** | The claim check only counted shared words, so a sentence with one wrong number or name still passed. | Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence. | Swapped facts caught 2.1% → **60.2%**, true sentences passed 100.0%. On real science claims it is stricter both ways: contradicted claims pass 50.0% → 34.4%, supported ones 71.8% → 57.9% |
+| **The answer comes first** | Answers without an LLM listed sentences in reading order, so the one that answers the question was often in the middle. | The most relevant sentence comes first, and rare question words count more than common ones. | Answer in the first bullet 47.6% → **69.3%** |
+| **Wrong numbers and names are caught** | The claim check only counted shared words, so a sentence with one wrong number or name still passed. | Numbers and names must appear in the sources, and negation or direction must agree with the matching sentence. | Swapped facts caught 2.1% → **60.1%**, true sentences passed 100.0%. On real science claims it is stricter both ways: contradicted claims pass 50.0% → 34.4%, supported ones 71.8% → 58.3% |
 | **The reranker, measured on both kinds of text** | It replaced the search order, which helped everyday questions but made scientific ones worse. | Its order is now combined with the search order. It stays off by default and is part of the Best quality profile, because on scientific text search alone still scores higher. | SciFact with reranker 69.2% → **72.5%** (search alone 74.7%); SQuAD half A right page first 73.7% → 80.3% with it (tuning data) |
 | **Local models use several cores** | Embeddings, the reranker and the in-browser LLM ran on a single CPU thread. | Cross-origin isolation (Space headers, a small service worker on GitHub Pages) lets them use every core, and documents are embedded in batches of similar length so less work goes to padding. | Indexing 4.2× faster, questions embedded 2.5× faster, the in-browser model's first token 3.8× sooner |
 | **Smaller downloads without a GPU** | Every device downloaded the 26.9 MB WebAssembly runtime built for WebGPU support. | Devices without WebGPU get the plain 14.3 MB runtime. | 12.6 MB less to download on first use |
@@ -147,16 +147,17 @@ measured in headless Chromium without a GPU, so it shows the WebAssembly path ev
 | Right page ranked first (SQuAD, app defaults) | 76.7% | 76.5% | −0.2 pts (−1.2 to +0.5) |
 | Right page in the top 4 (SQuAD, app defaults) | 93.4% | **94.2%** | +0.8 pts (+0.1 to +1.3) |
 | Answer text reaches the prompt (SQuAD, retrieved context) | 94.1% | 94.4% | +0.3 pts (0.0 to +0.9) |
-| Answer in the first bullet (SQuAD, no-LLM answer) | 47.6% | **67.0%** | +19.4 pts (+17.8 to +21.4) |
-| Answer in the top 3 bullets (SQuAD, no-LLM answer) | 74.4% | **79.1%** | +4.8 pts (+3.7 to +6.3) |
+| Answer in the first bullet (SQuAD, no-LLM answer) | 47.6% | **69.3%** | +21.6 pts (+20.1 to +23.8) |
+| Answer in the top 3 bullets (SQuAD, no-LLM answer) | 74.4% | **80.4%** | +6.1 pts (+5.1 to +7.4) |
 | Keyword search accuracy (SciFact nDCG@10) | 65.9% | **69.6%** | +3.7 pts (+1.6 to +5.8) |
 | Hybrid search accuracy (SciFact nDCG@10, app default) | 71.6% | **74.7%** | +3.0 pts (+1.2 to +4.8) |
 | Hybrid search with reranker (SciFact nDCG@10, Best quality profile) | 69.2% | **72.5%** | +3.3 pts (+1.5 to +4.9) |
 | Keyword search, unseen data (NFCorpus nDCG@10, never used for tuning) | 31.2% | 32.3% | +1.2 pts (0.0 to +2.3) |
 | Hybrid search, unseen data (NFCorpus nDCG@10, never used for tuning) | 35.7% | **36.6%** | +0.9 pts (+0.2 to +1.7) |
-| Swapped facts caught (claim check, SQuAD sentences) | 2.1% | **60.2%** | +58.0 pts (+56.7 to +59.3) |
+| Swapped facts caught (claim check, SQuAD sentences) | 2.1% | **60.1%** | +57.9 pts (+56.6 to +59.2) |
 | True sentences passed (claim check, SQuAD sentences) | 100.0% | 100.0% | 0.0 pts (0.0 to 0.0) |
-| Supported claims passed (claim check, SciFact claims, higher is better) | 71.8% | 57.9% | −13.9 pts (−20.8 to −6.9) |
+| Near misses passed (claim check, true sentence against the wrong paragraph, lower is better) | 2.2% | 2.1% | −0.1 pts (−0.7 to +0.7) |
+| Supported claims passed (claim check, SciFact claims, higher is better) | 71.8% | 58.3% | −13.4 pts (−20.4 to −6.5) |
 | Contradicted claims passed (claim check, SciFact claims, lower is better) | 50.0% | **34.4%** | −15.6 pts (−23.0 to −8.2) |
 
 ![Local model speed-ups](docs/benchmarks/speed.svg)
@@ -187,6 +188,14 @@ paragraph is given; the interval compares each model with Qwen2.5 on the same qu
 app's pipeline with its in-browser settings.
 
 <!-- models:start -->
+<!-- Generated by `npm run bench:report` from bench/results/models (measured on commit cd4f0ce). Do not edit by hand. -->
+| In-browser model (licence) | Download without WebGPU | First token, ~930-token prompt | Writing speed | Reading: answer found / F1 (SQuAD half B) | Full answer: median time, answer found |
+|---|---|---|---|---|---|
+| Qwen2.5 0.5B Instruct **(default)** (Apache 2.0) | 807 MB | 10.1 s | 3.3 tokens/s | 57% / 57, 6 tokens per answer | 20 s, 42% of 24 |
+| LFM2 350M (LFM Open License v1.0) | 312 MB | 11.6 s | 2.3 tokens/s | 69% / 25, 22 tokens per answer (found: +12.0 pts vs Qwen, +2.0 to +23.0) | 124 s, 42% of 24 |
+| Gemma 3 270M (Gemma terms of use) | 358 MB | 13.0 s | 2.9 tokens/s | not measured (slower than the default) | not measured |
+| LFM2 700M (LFM Open License v1.0) | 577 MB | 26.2 s | 0.9 tokens/s | not measured (slower than the default) | not measured |
+| SmolLM2 360M Instruct (Apache 2.0) | 404 MB | 36.3 s | 2.8 tokens/s | not measured (slower than the default) | not measured |
 <!-- models:end -->
 
 ### Tried, no gain

@@ -40,6 +40,27 @@ Compared with round 1 (`bench/results/round1/` against `bench/results/after/`).
 - **Claim overlap threshold 0.5 instead of 0.6.** On the training claims the gap between supported and contradicted
   pass rates widened (3.6 → 7.8 points), but on held-out claims it narrowed (23.4 → 18.2), because contradicted claims
   passed 16.4 points more often.
+- **Another default in-browser model.** Five models were compared on the CPU (4 vCPU, no GPU, 4-bit weights; table in
+  the README). Qwen2.5 0.5B stays the default because it is the fastest:
+
+  | Model | Download | First token, ~930-token prompt | Writing speed |
+  |---|---|---|---|
+  | Qwen2.5 0.5B (default) | 807 MB | 10.1 s | 3.3 tokens/s |
+  | LFM2 350M | 312 MB | 11.6 s | 2.3 tokens/s |
+  | Gemma 3 270M | 358 MB | 13.0 s | 2.9 tokens/s |
+  | LFM2 700M | 577 MB | 26.2 s | 0.9 tokens/s |
+  | SmolLM2 360M | 404 MB | 36.3 s | 2.8 tokens/s |
+
+  LFM2 350M found the answer more often in short reading questions (69% against 57% on held-out SQuAD, CI +2 to +23
+  points), but it writes long sentences (F1 25 against 57) and its full answers in the app took a median 124 s
+  against 20 s, with the same share of correct answers (42% of 24). The three slower models were measured for speed
+  only.
+- **The UI under load.** Production build: first paint after 122 ms with no main-thread task over 50 ms. Streaming
+  400 tokens at 50 tokens per second from a local server, the last word is on screen 141 ms after it arrives, with at
+  most one task over 50 ms (52 ms) and 0 to 2 ms of total blocking time. Nothing to fix.
+- **Tokenizer speed.** Round 1's stemming makes the keyword index 8% slower to build (517 against 477 ms for 5,183
+  abstracts; it runs in a worker, so the page stays responsive). An ASCII-only fast path did not help (297 against
+  299 ms).
 - **One shared worker for embeddings and the reranker.** The reranker's first use already takes 525 ms including its
   23.9 MB download (4 vCPU, isolated), so sharing the runtime could save about 0.2 s once per session. Not worth the
   added complexity.

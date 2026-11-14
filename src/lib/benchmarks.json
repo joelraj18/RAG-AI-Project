@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-12",
+ "generated": "2026-11-14",
  "hardware": "Intel Xeon @ 2.30GHz, 4 vCPU, no GPU",
  "quality": [
   {
@@ -37,8 +37,8 @@
    "label": "Answer in the first bullet",
    "note": "SQuAD, no-LLM answer",
    "before": 0.4762801204819277,
-   "after": 0.6698042168674698,
-   "delta": 0.19352409638554216,
+   "after": 0.6927710843373494,
+   "delta": 0.2164909638554217,
    "lower": false,
    "card": true
   },
@@ -47,8 +47,8 @@
    "label": "Answer in the top 3 bullets",
    "note": "SQuAD, no-LLM answer",
    "before": 0.7435993975903614,
-   "after": 0.7914156626506024,
-   "delta": 0.04781626506024096,
+   "after": 0.8042168674698795,
+   "delta": 0.06061746987951807,
    "lower": false,
    "card": true
   },
@@ -107,8 +107,8 @@
    "label": "Swapped facts caught",
    "note": "claim check, SQuAD sentences",
    "before": 0.021406727828746176,
-   "after": 0.6018730886850153,
-   "delta": 0.5804663608562691,
+   "after": 0.6005351681957186,
+   "delta": 0.5791284403669725,
    "lower": false,
    "card": true
   },
@@ -123,12 +123,22 @@
    "card": false
   },
   {
+   "id": "near",
+   "label": "Near misses passed",
+   "note": "claim check, true sentence against the wrong paragraph, lower is better",
+   "before": 0.022265246853823813,
+   "after": 0.021297192642787996,
+   "delta": -0.000968054211035818,
+   "lower": true,
+   "card": false
+  },
+  {
    "id": "sciSup",
    "label": "Supported claims passed",
    "note": "claim check, SciFact claims, higher is better",
    "before": 0.7175925925925926,
-   "after": 0.5787037037037037,
-   "delta": -0.1388888888888889,
+   "after": 0.5833333333333334,
+   "delta": -0.13425925925925927,
    "lower": false,
    "card": true
   },
