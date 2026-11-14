@@ -15,17 +15,17 @@
    },
    "Xenova/all-MiniLM-L6-v2": {
     "namespace": "ns1",
-    "cached": 6288
+    "cached": 10202
    },
    "Xenova/bge-small-en-v1.5": {
     "namespace": "ns1",
-    "cached": 5483
+    "cached": 9397
    }
   },
   "rerank": {
    "Xenova/ms-marco-MiniLM-L-6-v2": {
     "namespace": "ns1",
-    "cached": 13440
+    "cached": 19440
    }
   }
  },
@@ -35,6 +35,9 @@
   "Xenova/all-MiniLM-L6-v2": "751bff37182d3f1213fa05d7196b954e230abad9",
   "Xenova/ms-marco-MiniLM-L-6-v2": "a09144355adeed5f58c8ed011d209bf8ee5a1fec",
   "onnx-community/Qwen2.5-0.5B-Instruct": "22942cb7d7ba4cc81bb4673549ca4d4614469b5e",
-  "onnx-community/LFM2-350M-ONNX": "ecc51d35a7edbc8f9ef6d23b59a5f036dcfc7ee8"
+  "onnx-community/LFM2-350M-ONNX": "ecc51d35a7edbc8f9ef6d23b59a5f036dcfc7ee8",
+  "onnx-community/LFM2-700M-ONNX": "bdfeecd9300145cc1696702b74234d73f683622f",
+  "HuggingFaceTB/SmolLM2-360M-Instruct": "a10cc1512eabd3dde888204e902eca88bddb4951",
+  "onnx-community/gemma-3-270m-it-ONNX": "2dbbfdb1b59bd034eb959428c6a7da9dd7ea27f0"
  }
 }
