@@ -1,0 +1,60 @@
+{
+ "meta": {
+  "label": "models",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "6fdd188",
+  "dirty": false,
+  "date": "2026-11-14T07:12:01.986Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "llm-onnx-community_Qwen2.5-0.5B-Instruct-reading-B",
+  "seconds": 444
+ },
+ "result": {
+  "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+  "part": "reading-B",
+  "loadMs": 9187.579999999958,
+  "downloadBytes": 807494572,
+  "status": {
+   "device": "wasm",
+   "threads": 4,
+   "build": "plain",
+   "dtype": "q4"
+  },
+  "reading": {
+   "split": "B",
+   "n": 100,
+   "accuracy": 0.57,
+   "per": [1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0],
+   "ids": ["56be4db0acb8001400a502ed", "56beafca3aeaaa14008c9208", "56beb3a03aeaaa14008c9249", "56bf36b93aeaaa14008c9563", "56d9a6b4dc89441400fdb6a3", "56bec0dd3aeaaa14008c9358", "56bec5233aeaaa14008c93d3", "56bec98e3aeaaa14008c9455", "57339ad74776f41900660e88", "5733314e4776f4190066076b", "56dde27d9a695914005b9652", "56dfa01738dc42170015211d", "56dfad0a7aa994140058dfc7", "56e0812c231d4119001ac215", "56e10179cd28a01900c67413", "56e11afbcd28a01900c675c9", "56e190bce3433e1400422fc8", "56e1d9fee3433e14004231cd", "56e751fb00c9c71400d76fa8", "56e7667e37bdd419002c3f4c", "56e77b8c00c9c71400d77194", "56f8094aa6d7ea1400e17393", "56f84e63aef2371900625fc3", "56f87760aef23719006260cf", "56f8b4d79b226e1400dd0e75", "5705ec1675f01819005e7770", "570610b275f01819005e792b", "57096c95200fba1400367fbf", "570d4030fed7b91900d45d9f", "57108198b654c5140001f938", "5710f4b8b654c5140001fa49", "57113c6da58dae1900cd6d36", "57115f652419e314009555ba", "571c4132dd7acb1400e4c0b4", "571cb010dd7acb1400e4c12b", "5725b76389a1e219009abd4a", "5725b56589a1e219009abd21", "5725d0e3271a42140099d236", "5725eb8a38643c19005ace80", "5726938af1498d1400e8e446", "5726a638dd62a815002e8bf8", "5725c41eec44d21400f3d50e", "572a005f1d046914007796bb", "5725cb33271a42140099d1de", "57268c01dd62a815002e8912", "5725f190ec44d21400f3d773", "57263b1638643c19005ad335", "57264cc6dd62a815002e80e7", "5726701add62a815002e84cb", "57266dd4f1498d1400e8df7a", "572683e6f1498d1400e8e24e", "57269e80f1498d1400e8e522", "5726b6e05951b619008f7b99", "5726e37ef1498d1400e8eedb", "57270ab9708984140094d8fa", "5726efdbdd62a815002e95c8", "572749d7dd62a815002e9a92", "57276690708984140094dd04", "5726a4a9708984140094ccb7", "57272bcb5951b619008f8684", "572754cd5951b619008f8865", "5726f2375951b619008f8312", "572900f73f37b31900477f6b", "572a06af3f37b31900478667", "5728d9403acd2414000e001c", "5728ec6a4b864d19001650ad", "572753335951b619008f8854", "572750df5951b619008f882f", "5727d3843acd2414000ded6a", "572821274b864d1900164511", "5727f05b4b864d190016406c", "572a06866aef0514001551be", "572a213e6aef0514001552f1", "572805363acd2414000df26d", "57282036ff5b5019007d9d9d", "57283b91ff5b5019007d9fa8", "572856beff5b5019007da194", "572863c72ca10214002da2d4", "57287b4a4b864d1900164a2b", "5728de0e2ca10214002da9df", "572917743f37b31900478010", "572928bf6aef051400154af2", "57294baaaf94a219006aa26d", "5729686d1d046914007793c3", "5729714daf94a219006aa42d", "57296f293f37b319004783a5", "572996c73f37b319004784b7", "572fe60fb2c2fd140056858e", "572ff56304bcaa1900d76f2f", "573009a004bcaa1900d77053", "572fc5a1947a6a140053cc8c", "572ff760b2c2fd1400568679", "57300f8504bcaa1900d770d5", "573062662461fd1900a9cdfa", "5730a4d02461fd1900a9cf2d", "5730ab288ab72b1400f9c654", "5730cc2cb54a4f140068cc67", "5733e5a14776f4190066145b", "573408ef4776f41900661757", "57377aac1c4567190057447c"],
+   "seconds": 434.81852195700003
+  },
+  "peakMemoryMb": 4664
+ }
+}
