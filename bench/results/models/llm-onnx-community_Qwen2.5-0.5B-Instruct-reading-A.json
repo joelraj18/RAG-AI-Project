@@ -1,0 +1,65 @@
+{
+ "meta": {
+  "label": "models",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "994a535",
+  "dirty": false,
+  "date": "2026-11-14T07:55:44.958Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "llm-onnx-community_Qwen2.5-0.5B-Instruct-reading-A",
+  "seconds": 473
+ },
+ "result": {
+  "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+  "part": "reading-A",
+  "loadMs": 9444.955000000075,
+  "downloadBytes": 807494572,
+  "status": {
+   "device": "wasm",
+   "threads": 4,
+   "build": "plain",
+   "dtype": "q4"
+  },
+  "reading": {
+   "split": "A",
+   "n": 100,
+   "accuracy": 0.61,
+   "f1": 0.6170679999999998,
+   "answerTokens": 5.78,
+   "per": [1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+   "perF1": [0.4, 0.5714, 1, 0.3077, 0.3333, 0.3333, 1, 0.6667, 0.75, 1, 1, 1, 0, 1, 1, 0.3333, 1, 0.6667, 0.4, 0.2, 0.8, 0.1667, 1, 1, 0.4444, 0.5, 0, 1, 0.2857, 0, 1, 1, 1, 0.5, 0, 1, 0, 0.25, 1, 1, 0.6087, 1, 0, 0.6667, 1, 1, 1, 1, 0.2857, 1, 0, 0.8889, 1, 1, 1, 0, 1, 0, 1, 0, 0, 0.8, 0, 1, 1, 1, 0, 0.2857, 0.5, 1, 1, 0, 1, 0, 1, 0.5714, 1, 1, 1, 0, 0, 1, 1, 1, 0.8571, 0, 0, 0, 0, 0.6667, 0.6667, 1, 1, 1, 1, 0, 0, 1, 1, 0],
+   "perTokens": [13, 5, 1, 20, 13, 4, 3, 5, 5, 2, 5, 2, 2, 2, 4, 10, 2, 3, 8, 10, 8, 11, 2, 3, 9, 4, 7, 4, 7, 13, 6, 6, 1, 2, 20, 6, 10, 9, 4, 2, 21, 10, 2, 2, 11, 3, 3, 6, 20, 3, 3, 6, 4, 4, 3, 3, 4, 2, 5, 3, 3, 12, 22, 2, 6, 3, 3, 4, 6, 7, 2, 3, 3, 8, 8, 8, 4, 2, 4, 2, 2, 6, 6, 3, 11, 2, 1, 1, 2, 13, 4, 2, 2, 4, 2, 23, 3, 2, 4, 2],
+   "texts": ["The AFC represented the Denver Broncos at Super Bowl 50.", "Coldplay and Beyoncé", "Ten", "The final score of the game between the Panthers and the Seahawks was 31-24.", "The Broncos wore their white jerseys for Super Bowl 50.", "Bay Area Youth Fund", "Kevin Harlan", "Defensive Linebacker", "Internal migration and urbanization", "Prussia", "Śródmieście", "Hereford", "teach", "Sparking", "Westinghouse Electric", "September 20, 1937", "Pity", "complexity resource", "A Turing machine emulates a computer.", "In detention, pupils typically remain in their classroom.", "£20,980 annually", "True repentance involves sincere effort towards God's will.", "Luther", "catechism", "The Swiss cities did not sign these agreements.", "1546", "The Great Lakes Megalopolis", "2014", "more than 25 million people", "About 54% of private students go to Catholic schools.", "The Edict of Nantes", "Jacques Lefevre", "four", "Steam turbines", "Chemicals containing hydrogen, nitrogen, or carbon dioxide can also contribute to a fire's oxidative potential.", "90.20 K", "1947 to 1967", "aeronautics, communications, and computing", "1969", "one-quarter", "The European Parliament and the Council of the European Union have powers of amendment and veto during the legislative process.", "Since the Treaty of Rome 1957", "rainforest", "Suriname", "A transparent dome made of long, immobile cilia", "Bill Aken", "Fresno", "30-60%", "Half of the 300,000 inhabitants died in 1649.", "Geophysical surveys", "Debts", "by the Metro Light Rail system", "Festival of Britain", "1869", "781", "Peanuts", "ABC-DuMont", "second place", "Michael P. Millardi", "Subutai", "Yan'an", "The pharmacist stood above the two personal physicians of the Emperor.", "The symbol that was employed until the early 20th century was the ℞ (recipere).", "pathogens", "Elie Metchnikoff", "Thoreau", "condemnation", "Public-Private Partnership", "The 18th century", "$38,000", "11", "Necessity", "Thomas Piketty", "Waste and pollution would be lower.", "William Hartnell and Patrick Troughton", "number 24 in the UK charts", "Guinness World Records", "12", "1206", "Great Khan", "Southern China", "December 2014", "January 2003", "Ed Whitfield", "Synthesis of isopentenyl pyrophosphate", "Electron", "Four", "3", "Esels", "The Lower RhineflowsthroughNorthRhineWestphalia.", "Germania Inferior", "Decision Time", "18", "Mohamed Morsi", "Defense Secretary", "The earliest Britain had an imperialist policy when the British East India Company was established in 1599.", "The Holy Club", "36", "Catawba", "defeated"],
+   "ids": ["56be4db0acb8001400a502ec", "56d98c53dc89441400fdb546", "56beb3083aeaaa14008c923f", "56beb6f23aeaaa14008c92a5", "56d70ccc0d65d2140019831d", "56d71d150d65d21400198370", "56bf738b3aeaaa14008c9656", "56bec9133aeaaa14008c9446", "57337ea24776f41900660bd4", "57332a734776f41900660727", "573382d24776f41900660c37", "56de3d594396321400ee26ca", "56dfa2c54a1a83140091ebf5", "56dfb6d17aa994140058e056", "56e0e69b7aa994140058e797", "56e10ddce3433e1400422b4c", "56e122dacd28a01900c6763b", "56e1b754cd28a01900c67abc", "56e200e4cd28a01900c67c18", "56e75a9037bdd419002c3ec9", "56e773fa00c9c71400d7714c", "56f7ef96aef2371900625c78", "56f826a7a6d7ea1400e17428", "56f86680a6d7ea1400e175cd", "56f8907faef23719006261b5", "56f8c5909b226e1400dd0f7e", "5705f7c875f01819005e77dc", "5706149552bb891400689882", "57097b50200fba140036804e", "570d44abb3d812140066d601", "57108d69b654c5140001f987", "57111380a58dae1900cd6bd6", "5711488ab654c5140001fc40", "5711607f2419e314009555cf", "571cebc05efbb31900334e4c", "571cc6f85efbb31900334de4", "5725b92e38643c19005acbd6", "5725b77889a1e219009abd57", "5725d61038643c19005acdd5", "5725f16f89a1e219009ac0ce", "5726938af1498d1400e8e447", "5726b58f5951b619008f7b56", "572a0bfaaf94a219006aa77b", "572a07c11d046914007796d7", "572655e5f1498d1400e8dc60", "5725d42a89a1e219009abf58", "5725ff8238643c19005acf4d", "57264684708984140094c125", "57265700dd62a815002e8210", "57268066708984140094c822", "572674f6f1498d1400e8e03d", "57268885dd62a815002e886b", "57268f2c708984140094ca28", "5726c9a4708984140094d172", "5726f90b708984140094d75f", "5726e5ac708984140094d51e", "57273f9d708984140094db53", "572759c1f1498d1400e8f6ca", "572774cf5951b619008f8a54", "5726b0985951b619008f7a91", "57273455f1498d1400e8f48e", "5726dcbddd62a815002e9324", "5726fa525951b619008f83f8", "5729f12e3f37b319004785e3", "572a0a686aef0514001551ed", "572812e74b864d19001643ce", "5728ec6a4b864d19001650ae", "5727526cdd62a815002e9b10", "5727515f708984140094dc15", "5727d6154b864d1900163e34", "57281d494b864d19001644bf", "5727ee372ca10214002d99ee", "5729f4273f37b319004785fe", "572a1f086aef0514001552c1", "572803493acd2414000df229", "572819864b864d1900164480", "57283a392ca10214002da118", "57285841ff5b5019007da19a", "572863c72ca10214002da2d5", "57287b4a4b864d1900164a29", "572885023acd2414000dfa83", "572914441d04691400779025", "572926653f37b3190047807c", "572943ab1d0469140077921a", "5729645b3f37b31900478323", "5729703d3f37b319004783bd", "5729789b6aef051400154f6d", "57299021af94a219006aa50d", "572f57c704bcaa1900d76870", "572ff430a23a5019007fcba9", "57300888b2c2fd1400568777", "572fc49d04bcaa1900d76ccc", "572fdb17b2c2fd140056851f", "573004bf947a6a140053cf5a", "57303048947a6a140053d257", "5730a40f396df91900096234", "573099f42461fd1900a9cef9", "5730c8a1f6cb411900e2449e", "5733da01d058e614000b63f9", "573403394776f419006616df"],
+   "seconds": 462.01537571399996
+  },
+  "peakMemoryMb": 4784
+ }
+}
