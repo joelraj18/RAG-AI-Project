@@ -252,7 +252,9 @@ These ideas were measured and left out, so the app stays simpler (the [changelog
   5.0 passages per second) and for the in-browser LLM (3.0, 2.5 and 1.8 tokens per second), so the workers use every
   core (up to 8).
 - **Hardware.** A 4 vCPU cloud machine (Intel Xeon at 2.3 GHz) with 15 GB of memory and no GPU. On a phone or a
-  fast laptop the absolute numbers will differ; the before and after ratios are what to compare.
+  fast laptop the absolute numbers will differ; the before and after ratios are what to compare. Both sides of the
+  speed table ran on the same machine. A re-run of the final code on a slower one (2.1 GHz,
+  `bench/results/rerun/`) came within 5 to 20%: 8.0 chunks/s indexing, 10.5 s to the first token, 22 s per answer.
 - **Caveats.** SQuAD-style Wikipedia questions appear in the training data of many embedding models, so the absolute
   SQuAD numbers flatter semantic search; both versions use the same models, so the comparison is fair. The swapped
   facts are made by changing one number or name in a true sentence, which is easier to catch than the mistakes a real

@@ -58,6 +58,10 @@ Compared with round 1 (`bench/results/round1/` against `bench/results/after/`).
 - **The UI under load.** Production build: first paint after 122 ms with no main-thread task over 50 ms. Streaming
   400 tokens at 50 tokens per second from a local server, the last word is on screen 141 ms after it arrives, with at
   most one task over 50 ms (52 ms) and 0 to 2 ms of total blocking time. Nothing to fix.
+- **Local model speed.** Round 2 did not touch the model paths. A re-run of the final code on a slower host (Xeon at
+  2.1 GHz instead of 2.3, `bench/results/rerun/`) came within 5 to 20% of round 1: indexing 8.0 chunks/s (8.7),
+  question embedding 19 ms (15), reranking 20 passages 1.14 s (0.95), first token 10.5 s (9.4), writing 3.1 tokens/s
+  (3.3), full answer 22 s (20).
 - **Tokenizer speed.** Round 1's stemming makes the keyword index 8% slower to build (517 against 477 ms for 5,183
   abstracts; it runs in a worker, so the page stays responsive). An ASCII-only fast path did not help (297 against
   299 ms).
