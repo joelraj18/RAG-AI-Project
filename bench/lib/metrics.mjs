@@ -71,3 +71,36 @@ export const normText = (s) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+
+const ARTICLES = new Set(['a', 'an', 'the']);
+const answerTokens = (s) => normText(s).split(' ').filter((w) => w && !ARTICLES.has(w));
+/**
+ * SQuAD token F1 of a predicted answer against the best-matching gold answer. Unlike containment
+ * it penalises padding: a long answer that includes the gold text scores lower than the exact span.
+ */
+export function tokenF1(pred, golds) {
+  const p = answerTokens(pred);
+  let best = 0;
+  for (const g of golds) {
+    const t = answerTokens(g);
+    if (!p.length || !t.length) {
+      if (p.length === t.length) best = Math.max(best, 1);
+      continue;
+    }
+    const counts = new Map();
+    for (const w of t) counts.set(w, (counts.get(w) || 0) + 1);
+    let same = 0;
+    for (const w of p) {
+      const c = counts.get(w);
+      if (c) {
+        same++;
+        counts.set(w, c - 1);
+      }
+    }
+    if (!same) continue;
+    const prec = same / p.length;
+    const rec = same / t.length;
+    best = Math.max(best, (2 * prec * rec) / (prec + rec));
+  }
+  return best;
+}

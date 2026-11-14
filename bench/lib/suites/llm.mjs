@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { startMirror } from '../mirror.mjs';
 import { serve, launch, openBench, ortInfo, buildTree } from '../browser.mjs';
 import { CACHE, half, squad as loadSquad } from '../data.mjs';
-import { quantiles, normText } from '../metrics.mjs';
+import { quantiles, normText, tokenF1 } from '../metrics.mjs';
 import { buildCollection, questions } from './squad.mjs';
 import { packSets } from './speed.mjs';
 
@@ -101,13 +101,20 @@ export async function llmPart(E, tree, provider, model, part, { log = () => {}, 
       const split = part.slice(-1);
       const qs = readingQuestions(sq, split, reading);
       const per = [];
+      const f1 = [];
+      const tokens = [];
+      const texts = [];
       const t0 = performance.now();
       for (const q of qs) {
         const x = await page.call('generate', model, [{ role: 'system', content: 'Answer with a short phrase copied from the context.' }, { role: 'user', content: `Context:\n${q.context}\n\nQuestion: ${q.question}` }], 24);
         per.push(contains(q.answers, x.text) ? 1 : 0);
+        f1.push(+tokenF1(x.text, q.answers).toFixed(4));
+        tokens.push(x.completionTokens);
+        texts.push(String(x.text).slice(0, 200));
       }
-      result.reading = { split, n: qs.length, accuracy: per.reduce((s, v) => s + v, 0) / qs.length, per, ids: qs.map((q) => q.id), seconds: (performance.now() - t0) / 1000 };
-      log(`llm ${model}: reading ${split} ${(100 * result.reading.accuracy).toFixed(1)}% of ${qs.length}`);
+      const avg = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+      result.reading = { split, n: qs.length, accuracy: avg(per), f1: avg(f1), answerTokens: avg(tokens), per, perF1: f1, perTokens: tokens, texts, ids: qs.map((q) => q.id), seconds: (performance.now() - t0) / 1000 };
+      log(`llm ${model}: reading ${split} ${(100 * result.reading.accuracy).toFixed(1)}% of ${qs.length}, F1 ${(100 * result.reading.f1).toFixed(1)}, ${result.reading.answerTokens.toFixed(1)} answer tokens`);
     } else if (part === 'answers' && col) {
       // complete answers through the pipeline with the tree's in-browser settings and this model
       await page.call('loadSets', packSets(col));
