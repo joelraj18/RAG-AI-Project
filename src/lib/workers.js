@@ -83,6 +83,16 @@ export const EMBED_MODELS = [
 
 export const RERANK_MODEL = { id: 'Xenova/ms-marco-MiniLM-L-6-v2', size: '23 MB' };
 
+// In-browser instruct models. The dtype differs per device (q4f16 needs WebGPU), and so does the
+// download: the size shown is the model file the browser actually fetches on that device.
+export const BROWSER_MODELS = [
+  { id: 'onnx-community/Qwen2.5-0.5B-Instruct', name: 'Qwen2.5 0.5B Instruct', hint: 'fastest', dtype: { webgpu: 'q4f16', wasm: 'q4' }, size: { webgpu: '483 MB', wasm: '786 MB' } },
+  { id: 'onnx-community/Llama-3.2-1B-Instruct-ONNX', name: 'Llama 3.2 1B Instruct', dtype: { webgpu: 'q4f16', wasm: 'q4' }, size: { webgpu: '1.09 GB', wasm: '1.69 GB' } },
+  { id: 'HuggingFaceTB/SmolLM2-1.7B-Instruct', name: 'SmolLM2 1.7B Instruct', hint: 'best with WebGPU', dtype: { webgpu: 'q4f16', wasm: 'q4' }, size: { webgpu: '1.11 GB', wasm: '1.41 GB' } },
+].map((m) => ({ ...m, label: `${m.name} (${m.size.webgpu} with WebGPU, ${m.size.wasm} without${m.hint ? `, ${m.hint}` : ''})` }));
+
+export const browserModelInfo = (id) => BROWSER_MODELS.find((m) => m.id === id);
+
 export function embedModelInfo(id) {
   return EMBED_MODELS.find((m) => m.id === id) || { id, dim: null, label: id, queryPrefix: '', tags: [] };
 }
@@ -103,8 +113,21 @@ export async function embedQuery(model, text) {
   return data;
 }
 
-export async function rerank(query, passages) {
-  const res = await rerankClient.call({ model: RERANK_MODEL.id, query, passages });
+const preloaded = new Set();
+/**
+ * Load a model into its worker ahead of the first question (fire and forget), so the first
+ * answer does not also wait for the download and initialisation. Each model loads once.
+ */
+export function preload(kind, model) {
+  const key = `${kind}:${model}`;
+  if (preloaded.has(key)) return;
+  preloaded.add(key);
+  const job = kind === 'gen' ? genClient.call({ type: 'load', model, dtypes: browserModelInfo(model)?.dtype }) : embedTexts(model, ['warm up']);
+  job.catch(() => preloaded.delete(key));
+}
+
+export async function rerank(query, passages, { maxLength } = {}) {
+  const res = await rerankClient.call({ model: RERANK_MODEL.id, query, passages, maxLength });
   return res.scores;
 }
 
@@ -112,7 +135,7 @@ export async function browserGenerate(model, { messages, maxTokens, temperature,
   const onAbort = () => genClient.terminate();
   signal?.addEventListener('abort', onAbort, { once: true });
   try {
-    const res = await genClient.call({ type: 'generate', model, messages, maxTokens, temperature, topP }, (m) => onToken?.(m.text));
+    const res = await genClient.call({ type: 'generate', model, dtypes: browserModelInfo(model)?.dtype, messages, maxTokens, temperature, topP }, (m) => onToken?.(m.text));
     return res.result;
   } finally {
     signal?.removeEventListener('abort', onAbort);

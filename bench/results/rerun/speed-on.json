@@ -1,0 +1,389 @@
+{
+ "meta": {
+  "label": "after",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "bfbf35f",
+  "dirty": false,
+  "date": "2026-11-14T09:52:56.613Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "speed-on",
+  "seconds": 529
+ },
+ "result": {
+  "isolated": true,
+  "reps": 3,
+  "indexing": {
+   "runs": [
+    {
+     "firstDocMs": 5074.8849999997765,
+     "chunksPerSec": 8.249546904657056,
+     "ingestMs": 253.0449999999255,
+     "chunks": 292,
+     "downloadBytes": 49728682,
+     "device": {
+      "device": "wasm",
+      "threads": 4,
+      "build": "plain",
+      "dtype": "q8"
+     },
+     "crossOriginIsolated": true,
+     "warnings": []
+    },
+    {
+     "firstDocMs": 5109.2949999999255,
+     "chunksPerSec": 8.032943653805551,
+     "ingestMs": 249.089999999851,
+     "chunks": 292,
+     "downloadBytes": 49728682,
+     "device": {
+      "device": "wasm",
+      "threads": 4,
+      "build": "plain",
+      "dtype": "q8"
+     },
+     "crossOriginIsolated": true,
+     "warnings": []
+    },
+    {
+     "firstDocMs": 5314.550000000745,
+     "chunksPerSec": 7.673042857897475,
+     "ingestMs": 234.65999999828637,
+     "chunks": 292,
+     "downloadBytes": 49017021,
+     "device": {
+      "device": "wasm",
+      "threads": 4,
+      "build": "plain",
+      "dtype": "q8"
+     },
+     "crossOriginIsolated": true,
+     "warnings": []
+    }
+   ],
+   "chunksPerSec": 8.032943653805551,
+   "firstDocMs": 5109.2949999999255,
+   "ingestMs": 249.089999999851,
+   "chunks": 292,
+   "downloadBytes": 49728682
+  },
+  "queryEmbedMs": {
+   "n": 40,
+   "mean": 20.463125000009313,
+   "median": 18.60499999858439,
+   "p90": 24.990000000223517,
+   "min": 13.279999999329448,
+   "max": 65.01999999955297
+  },
+  "rerankLoadMs": 600.5570670000016,
+  "rerankDownloadBytes": 23858203,
+  "rerank20Ms": {
+   "n": 10,
+   "mean": 1179.923499999754,
+   "median": 1142.5149999987334,
+   "p90": 1591.230000000447,
+   "min": 978.3300000000745,
+   "max": 1591.230000000447
+  },
+  "llm": {
+   "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+   "loadMs": 9036.314999999478,
+   "downloadBytes": 807494572,
+   "prompts": {
+    "short": {
+     "runs": [
+      {
+       "promptTokens": 243,
+       "completionTokens": 53,
+       "firstTokenMs": 3532.925000000745,
+       "decodeTokPerSec": 2.962838878257906,
+       "wallMs": 21083.66000000015,
+       "device": "wasm"
+      },
+      {
+       "promptTokens": 243,
+       "completionTokens": 53,
+       "firstTokenMs": 3136.934999998659,
+       "decodeTokPerSec": 3.210579105118976,
+       "wallMs": 19333.389999998733,
+       "device": "wasm"
+      }
+     ],
+     "promptTokens": 243,
+     "firstTokenMs": 3532.925000000745,
+     "decodeTokPerSec": 3.210579105118976
+    },
+    "long": {
+     "runs": [
+      {
+       "promptTokens": 936,
+       "completionTokens": 65,
+       "firstTokenMs": 10335.804999999702,
+       "decodeTokPerSec": 2.856733477032865,
+       "wallMs": 32739.015000000596,
+       "device": "wasm"
+      },
+      {
+       "promptTokens": 936,
+       "completionTokens": 65,
+       "firstTokenMs": 10477.495000001043,
+       "decodeTokPerSec": 3.1189289013356136,
+       "wallMs": 30997.359999999404,
+       "device": "wasm"
+      }
+     ],
+     "promptTokens": 936,
+     "firstTokenMs": 10477.495000001043,
+     "decodeTokPerSec": 3.1189289013356136
+    }
+   },
+   "statuses": {
+    "gen": {
+     "device": "wasm",
+     "threads": 4,
+     "build": "plain",
+     "dtype": "q4"
+    }
+   }
+  },
+  "answers": {
+   "questions": [
+    {
+     "id": "56be4db0acb8001400a502ed",
+     "totalMs": 17564.91000000015,
+     "generationMs": 16734.35000000149,
+     "evaluationMs": 37.42500000074506,
+     "judged": false,
+     "promptTokens": 1044,
+     "completionTokens": 13,
+     "contextTokens": 655,
+     "goldInAnswer": 0,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "56d9a6b4dc89441400fdb6a1",
+     "totalMs": 14560.294999999925,
+     "generationMs": 14504.384999999776,
+     "evaluationMs": 40.92999999970198,
+     "judged": false,
+     "promptTokens": 958,
+     "completionTokens": 9,
+     "contextTokens": 609,
+     "goldInAnswer": 1,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "57339a554776f41900660e78",
+     "totalMs": 74480.42499999888,
+     "generationMs": 74328.1099999994,
+     "evaluationMs": 126.15499999932945,
+     "judged": false,
+     "promptTokens": 905,
+     "completionTokens": 179,
+     "contextTokens": 635,
+     "goldInAnswer": 0,
+     "support": 0.4,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "56dfac8e231d4119001abc5c",
+     "totalMs": 36288.28500000015,
+     "generationMs": 36209.830000000075,
+     "evaluationMs": 52.005000000819564,
+     "judged": false,
+     "promptTokens": 1078,
+     "completionTokens": 60,
+     "contextTokens": 780,
+     "goldInAnswer": 0,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "56e17e6ee3433e1400422f80",
+     "totalMs": 22153.724999999627,
+     "generationMs": 22073.330000000075,
+     "evaluationMs": 58.28500000014901,
+     "judged": false,
+     "promptTokens": 975,
+     "completionTokens": 31,
+     "contextTokens": 671,
+     "goldInAnswer": 0,
+     "support": 0.5,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "56e7788200c9c71400d77184",
+     "totalMs": 19558.59500000067,
+     "generationMs": 19508.460000000894,
+     "evaluationMs": 37.875,
+     "judged": false,
+     "promptTokens": 944,
+     "completionTokens": 25,
+     "contextTokens": 693,
+     "goldInAnswer": 0,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "56f8ae099e9bad19000a02ef",
+     "totalMs": 19243.264999998733,
+     "generationMs": 19189.265000000596,
+     "evaluationMs": 40.17500000074506,
+     "judged": false,
+     "promptTokens": 1113,
+     "completionTokens": 15,
+     "contextTokens": 766,
+     "goldInAnswer": 1,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    },
+    {
+     "id": "570d3468b3d812140066d543",
+     "totalMs": 77239.74000000022,
+     "generationMs": 77102.36999999918,
+     "evaluationMs": 125.4050000011921,
+     "judged": false,
+     "promptTokens": 1142,
+     "completionTokens": 170,
+     "contextTokens": 820,
+     "goldInAnswer": 0,
+     "support": 1,
+     "error": null,
+     "config": {
+      "mode": "hybrid",
+      "k": 4,
+      "rerank": false,
+      "neighbors": false,
+      "temperature": 0,
+      "maxTokens": 320,
+      "judgeMode": "off"
+     }
+    }
+   ],
+   "totalMs": {
+    "n": 8,
+    "mean": 35136.154999999795,
+    "median": 22153.724999999627,
+    "p90": 77239.74000000022,
+    "min": 14560.294999999925,
+    "max": 77239.74000000022
+   },
+   "goldInAnswer": 0.25,
+   "promptTokens": {
+    "n": 8,
+    "mean": 1019.875,
+    "median": 1044,
+    "p90": 1142,
+    "min": 905,
+    "max": 1142
+   }
+  },
+  "browser": {
+   "crossOriginIsolated": true,
+   "embed": {
+    "device": "wasm",
+    "threads": 4,
+    "build": "plain",
+    "dtype": "q8"
+   },
+   "gen": {
+    "device": "wasm",
+    "threads": 4,
+    "build": "plain",
+    "dtype": "q4"
+   }
+  },
+  "unexpectedRequests": []
+ }
+}

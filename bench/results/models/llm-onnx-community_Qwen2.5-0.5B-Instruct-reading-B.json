@@ -1,0 +1,65 @@
+{
+ "meta": {
+  "label": "models",
+  "tree": "/home/user/RAG-AI-Project",
+  "commit": "e9f2c68",
+  "dirty": false,
+  "date": "2026-11-14T08:04:03.086Z",
+  "node": "v22.23.4",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cores": 4,
+  "memoryGb": 16,
+  "transformers": "4.3.0",
+  "onnxruntimeWeb": "1.31.0-dev.20260914-8d85527a0",
+  "datasets": {
+   "scifact": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+    "license": "CC BY-SA 4.0 (BEIR)",
+    "cite": "Wadden et al. 2020; Thakur et al. 2021"
+   },
+   "nfcorpus": {
+    "url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "license": "BEIR distribution (NFCorpus, Boteva et al. 2016)",
+    "cite": "Boteva et al. 2016; Thakur et al. 2021"
+   },
+   "scifactClaims": {
+    "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+    "license": "CC BY-NC 2.0",
+    "cite": "Wadden et al. 2020"
+   },
+   "squad": {
+    "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json",
+    "license": "CC BY-SA 4.0",
+    "cite": "Rajpurkar et al. 2016"
+   }
+  },
+  "suite": "llm-onnx-community_Qwen2.5-0.5B-Instruct-reading-B",
+  "seconds": 498
+ },
+ "result": {
+  "model": "onnx-community/Qwen2.5-0.5B-Instruct",
+  "part": "reading-B",
+  "loadMs": 8527.71999999974,
+  "downloadBytes": 807494572,
+  "status": {
+   "device": "wasm",
+   "threads": 4,
+   "build": "plain",
+   "dtype": "q4"
+  },
+  "reading": {
+   "split": "B",
+   "n": 100,
+   "accuracy": 0.57,
+   "f1": 0.568232,
+   "answerTokens": 5.61,
+   "per": [1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0],
+   "perF1": [0.4, 1, 0, 1, 0.3333, 1, 0, 0, 0.75, 0, 0, 1, 1, 0.6667, 1, 0, 1, 0.1333, 0.6667, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0.5, 0, 1, 1, 1, 0, 1, 1, 0.1053, 0, 0, 0.7692, 0, 1, 1, 0, 0, 0.8, 0, 1, 1, 0.4706, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0.4444, 1, 1, 1, 1, 1, 0, 0.5, 1, 0.9231, 0, 0.9091, 0.5714, 1, 1, 0, 1, 0.1538, 0.6667, 0.75, 1, 1, 0, 1, 0.1429, 1, 0.6667, 0, 0, 1, 1, 0, 1, 0.5, 0],
+   "perTokens": [13, 6, 1, 3, 3, 3, 2, 1, 13, 3, 3, 4, 2, 3, 5, 1, 2, 11, 3, 4, 1, 7, 4, 5, 2, 3, 3, 4, 10, 2, 4, 4, 1, 4, 11, 10, 3, 10, 2, 2, 2, 17, 4, 3, 13, 24, 6, 5, 3, 10, 11, 2, 4, 4, 20, 6, 1, 6, 3, 5, 8, 7, 5, 3, 5, 12, 4, 4, 1, 3, 1, 1, 6, 2, 6, 1, 8, 18, 3, 4, 3, 6, 11, 5, 16, 6, 4, 15, 2, 24, 2, 8, 1, 7, 3, 5, 3, 4, 4, 3],
+   "texts": ["The NFC represented the Carolina Panthers at Super Bowl 50.", "early 2012", "1", "New England Patriots", "San Jose Marriott", "Phil Simms", "KOA", "Newton", "The Congress Hall is located in the Palace of Culture and Science.", "260", "northern france", "1893", "To Budapest", "Westinghouse", "Wardenclyffe", "2", "Decision Problems", "It follows that Π1 is also NP-complete.", "Informal Learning", "enjoys chemistry", "three", "His Work on the Psalms", "The Devil's Work", "Achtliederbuch", "Luther", "Tim Curran", "passenger volume", "Free-to-View", "V/Line owns the rail lines in Victoria.", "2%", "1604", "1606", "Spanish", "the mouse lived longer", "The troposphere is used to produce singlet oxygen.", "August 15, 1971", "Gemini Program", "1964 and 1965", "pitted", "The Commission", "cartels", "has been resolved by the availability of data samples taken from the center of the Amazon basin", "18% lower", "Cnidarians", "Western Atlantic ctenophore, Mnemiopsis leidyi", "aside from the area near Fresno Street and State Route 99 Freeway (Kearney Palm Shopping Center, built", "The Internet Protocol (IP)", "Rats and fleas", "Antiforms", "Riverside to higher parts of the city center", "Norman Foster designed Sage Gateshead Music and Arts Centre", "Lord Armstrong", "Andrea Palladio", "1913", "The V&A's collections are under the responsibility of conservators at the V&A Museum of Childhood.", "William Hanna and Joseph Barbera", "three", "The ABC Television Center, East", "Begter", "Subutai's Army", "Ghulam Shahanshah", "pharmacy practices, pharmacy information systems", "Leukotrienes", "Pattern recognition receptors", "Constitutional impasse", "The lawyers suggested they should plead \"nolo contendere\".", "Architect or Engineer", "Education Service Contracting", "eight", "the Barnett Center", "Education", "UK", "through increasing functionality and capabilities.", "The BBC", "BBC's mainstream BBC One channel", "first", "more than 1.3 million volumes", "The tribes he united were the Mongol and Turkic tribes of the steppes.", "Il Milione", "Somalia and Ethiopia", "agriculture", "The IAAF Golden League jackpot", "Oppenheimer advocated for a broader exploration of uncertainties.", "About a million base pairs", "Phycobilins are a group of pigments found in cyanobacteria.", "Miller-Rabin Primality Test", "1024", "The border of Swiss and Austria lies along the southern side of the lake.", "one ninth", "The Upper Rhine was sold to Burgundy by Archduke Sigismund of Austria in 1469", "Whips", "Abolition of the State of Israel", "Iraq", "racial, religious, or cultural stereotypes", "Catholicism", "John Wesley and Charles Wesley", "360", "1749", "1763", "Quantum Measurements"],
+   "ids": ["56be4db0acb8001400a502ed", "56beafca3aeaaa14008c9208", "56beb3a03aeaaa14008c9249", "56bf36b93aeaaa14008c9563", "56d9a6b4dc89441400fdb6a3", "56bec0dd3aeaaa14008c9358", "56bec5233aeaaa14008c93d3", "56bec98e3aeaaa14008c9455", "57339ad74776f41900660e88", "5733314e4776f4190066076b", "56dde27d9a695914005b9652", "56dfa01738dc42170015211d", "56dfad0a7aa994140058dfc7", "56e0812c231d4119001ac215", "56e10179cd28a01900c67413", "56e11afbcd28a01900c675c9", "56e190bce3433e1400422fc8", "56e1d9fee3433e14004231cd", "56e751fb00c9c71400d76fa8", "56e7667e37bdd419002c3f4c", "56e77b8c00c9c71400d77194", "56f8094aa6d7ea1400e17393", "56f84e63aef2371900625fc3", "56f87760aef23719006260cf", "56f8b4d79b226e1400dd0e75", "5705ec1675f01819005e7770", "570610b275f01819005e792b", "57096c95200fba1400367fbf", "570d4030fed7b91900d45d9f", "57108198b654c5140001f938", "5710f4b8b654c5140001fa49", "57113c6da58dae1900cd6d36", "57115f652419e314009555ba", "571c4132dd7acb1400e4c0b4", "571cb010dd7acb1400e4c12b", "5725b76389a1e219009abd4a", "5725b56589a1e219009abd21", "5725d0e3271a42140099d236", "5725eb8a38643c19005ace80", "5726938af1498d1400e8e446", "5726a638dd62a815002e8bf8", "5725c41eec44d21400f3d50e", "572a005f1d046914007796bb", "5725cb33271a42140099d1de", "57268c01dd62a815002e8912", "5725f190ec44d21400f3d773", "57263b1638643c19005ad335", "57264cc6dd62a815002e80e7", "5726701add62a815002e84cb", "57266dd4f1498d1400e8df7a", "572683e6f1498d1400e8e24e", "57269e80f1498d1400e8e522", "5726b6e05951b619008f7b99", "5726e37ef1498d1400e8eedb", "57270ab9708984140094d8fa", "5726efdbdd62a815002e95c8", "572749d7dd62a815002e9a92", "57276690708984140094dd04", "5726a4a9708984140094ccb7", "57272bcb5951b619008f8684", "572754cd5951b619008f8865", "5726f2375951b619008f8312", "572900f73f37b31900477f6b", "572a06af3f37b31900478667", "5728d9403acd2414000e001c", "5728ec6a4b864d19001650ad", "572753335951b619008f8854", "572750df5951b619008f882f", "5727d3843acd2414000ded6a", "572821274b864d1900164511", "5727f05b4b864d190016406c", "572a06866aef0514001551be", "572a213e6aef0514001552f1", "572805363acd2414000df26d", "57282036ff5b5019007d9d9d", "57283b91ff5b5019007d9fa8", "572856beff5b5019007da194", "572863c72ca10214002da2d4", "57287b4a4b864d1900164a2b", "5728de0e2ca10214002da9df", "572917743f37b31900478010", "572928bf6aef051400154af2", "57294baaaf94a219006aa26d", "5729686d1d046914007793c3", "5729714daf94a219006aa42d", "57296f293f37b319004783a5", "572996c73f37b319004784b7", "572fe60fb2c2fd140056858e", "572ff56304bcaa1900d76f2f", "573009a004bcaa1900d77053", "572fc5a1947a6a140053cc8c", "572ff760b2c2fd1400568679", "57300f8504bcaa1900d770d5", "573062662461fd1900a9cdfa", "5730a4d02461fd1900a9cf2d", "5730ab288ab72b1400f9c654", "5730cc2cb54a4f140068cc67", "5733e5a14776f4190066145b", "573408ef4776f41900661757", "57377aac1c4567190057447c"],
+   "seconds": 489.16563966100006
+  },
+  "peakMemoryMb": 4666
+ }
+}

@@ -31,6 +31,8 @@ export const DEFAULT_SETTINGS = {
   rerank: false,
   neighbors: false,
   contextBudget: 1800,
+  compactContext: 'auto', // 'auto' = on for local models (in-browser, localhost), true, false
+  compactShare: 0.5, // share of each passage kept when compacting
   hyde: false,
   condense: true,
   judgeMode: 'combined',
@@ -59,10 +61,26 @@ export const PROFILES = {
   quality: {
     label: 'Best quality',
     tags: ['quality'],
-    why: 'Cross-encoder reranking, neighbour context, strict two-call judge and a corrective retry. Slower, most accurate.',
+    why: 'Cross-encoder reranking, neighbour context, strict two-call judge and a corrective retry. Slower; the reranker helps most on everyday questions.',
     values: { retrievalMode: 'hybrid', k: 5, rerank: true, neighbors: true, hyde: false, condense: true, judgeMode: 'strict', corrective: true, embedModel: 'Xenova/bge-small-en-v1.5', maxTokens: 768 },
   },
 };
+
+// In-browser models: each LLM call re-reads the whole prompt on this device, so the defaults
+// skip the LLM judge and the follow-up rewrite (judge-free checks still run) and keep answers
+// shorter. Measured in the README's performance section.
+export const BROWSER_DEFAULTS = { judgeMode: 'off', condense: false, maxTokens: 320 };
+
+/** Settings after choosing a provider: in-browser defaults on the way in, normal ones on the way out. */
+export function settingsForProvider(s, id) {
+  const next = { ...s, provider: id };
+  if (id === 'browser' && s.provider !== 'browser') return { ...next, ...BROWSER_DEFAULTS };
+  if (id !== 'browser' && s.provider === 'browser') {
+    // restore only what still has the in-browser default (keep the user's own changes)
+    for (const [k, v] of Object.entries(BROWSER_DEFAULTS)) if (s[k] === v) next[k] = DEFAULT_SETTINGS[k];
+  }
+  return next;
+}
 
 /** Which profile (if any) the current settings match exactly. */
 export function matchProfile(s) {
@@ -88,6 +106,8 @@ export function loadSettings() {
     // purge secrets that older versions of the app may have saved
     if (SECRET_KEYS.some((k) => k in stored)) localStorage.setItem(KEY, JSON.stringify(persistable(stored)));
     const s = { ...DEFAULT_SETTINGS, ...persistable(stored) };
+    // the Llama 3.2 1B ONNX repository was renamed on the Hub
+    if (s.browserModel === 'onnx-community/Llama-3.2-1B-Instruct') s.browserModel = 'onnx-community/Llama-3.2-1B-Instruct-ONNX';
     // older versions called the custom OpenAI-compatible endpoint "openai"
     if (s.provider === 'openai' && !('apiModels' in stored)) s.provider = 'custom';
     return s;

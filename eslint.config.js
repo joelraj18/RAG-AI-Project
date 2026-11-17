@@ -22,4 +22,10 @@ export default [
     },
   },
   { files: ['**/*.config.js'], languageOptions: { globals: globals.node } },
+  // the benchmark harness (bench/) runs in Node; bench/page runs in the browser under test
+  {
+    files: ['bench/**/*.mjs'],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
+    rules: { 'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }] },
+  },
 ];

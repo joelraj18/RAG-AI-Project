@@ -1,29 +1,29 @@
-import { pipeline, TextStreamer, env } from '@huggingface/transformers';
+import { pipeline, TextStreamer } from '@huggingface/transformers';
+import { runtime } from './runtime.js';
+import { loadOnce } from './once.js';
 
 // In-browser instruct LLM (transformers.js). Runs on WebGPU when available, WASM otherwise.
-env.allowLocalModels = false;
 
-let generator = null;
-let loaded = null;
-let device = 'wasm';
+// default when the caller does not say (the catalogue in src/lib/workers.js does)
+const DTYPES = { webgpu: 'q4f16', wasm: 'q4' };
 
-async function load(model) {
-  if (generator && loaded === model) return;
-  const gpu = 'gpu' in navigator && (await navigator.gpu.requestAdapter().catch(() => null));
-  device = gpu ? 'webgpu' : 'wasm';
-  generator = await pipeline('text-generation', model, {
-    device,
-    dtype: device === 'webgpu' ? 'q4f16' : 'q4',
+const loadModel = loadOnce(async (key, model, dtypes) => {
+  const rt = await runtime();
+  const dtype = dtypes[rt.device] || DTYPES[rt.device];
+  const generator = await pipeline('text-generation', model, {
+    device: rt.device,
+    dtype,
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   });
-  loaded = model;
-  self.postMessage({ type: 'ready', device });
-}
+  self.postMessage({ type: 'ready', ...rt, dtype });
+  return { generator, device: rt.device };
+});
+const load = (model, dtypes = DTYPES) => loadModel(`${model} ${JSON.stringify(dtypes)}`, model, dtypes);
 
 self.onmessage = async (e) => {
-  const { id, type, model, messages, maxTokens, temperature, topP } = e.data;
+  const { id, type, model, dtypes, messages, maxTokens, temperature, topP } = e.data;
   try {
-    await load(model);
+    const { generator, device } = await load(model, dtypes);
     if (type === 'load') return self.postMessage({ id, type: 'done' });
     let text = '';
     let count = 0;
@@ -39,10 +39,12 @@ self.onmessage = async (e) => {
         self.postMessage({ id, type: 'token', text });
       },
     });
+    // return_dict: false gives the token ids themselves (the default is { input_ids, attention_mask })
     const promptTokens = generator.tokenizer.apply_chat_template(messages, {
       add_generation_prompt: true,
       tokenize: true,
       return_tensor: false,
+      return_dict: false,
     }).length;
     await generator(messages, {
       max_new_tokens: maxTokens,

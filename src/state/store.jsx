@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { db, requestPersistence } from '../lib/db.js';
 import { loadSettings, saveSettings } from '../lib/settings.js';
-import { loadKnowledge, cachedKnowledge, EmbedJob } from '../lib/kb.js';
-import { embedClient } from '../lib/workers.js';
+import { loadKnowledge, cachedKnowledge, EmbedJob, vectorsReady } from '../lib/kb.js';
+import { embedClient, preload } from '../lib/workers.js';
 import { slimRecord } from '../lib/pipeline.js';
 import { uid } from '../lib/text.js';
 import { whoami } from '../lib/hf.js';
@@ -144,6 +144,15 @@ export function StoreProvider({ children }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docKey]);
+
+  // warm the local models the next question will need, so it does not wait for them to load
+  useEffect(() => {
+    const ready = sets.find((x) => vectorsReady(x.doc, x.kb));
+    if (ready && settings.retrievalMode !== 'bm25') preload('embed', ready.doc.embedModel);
+  }, [sets, settings.retrievalMode]);
+  useEffect(() => {
+    if (settings.provider === 'browser') preload('gen', settings.browserModel);
+  }, [settings.provider, settings.browserModel]);
 
   // keep doc objects inside `sets` fresh (embedding progress) without reloading knowledge
   const liveSets = useMemo(() => sets.map((s) => ({ ...s, doc: docs.find((d) => d.id === s.doc.id) || s.doc })), [sets, docs]);

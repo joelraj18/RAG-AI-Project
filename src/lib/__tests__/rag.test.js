@@ -166,6 +166,26 @@ describe('evaluation', () => {
     expect(c.precision).toBe(0.5);
     expect(citationCheck('Give fluids within 3 hours [Handbook p. 3]. Start antibiotics early [Handbook p. 3]', sources).coverage).toBe(1);
   });
+  it('flags claims whose numbers or names are not in the sources, and reversed meaning', () => {
+    const src = [{ key: 'm:2', docId: 'm', docName: 'Handbook', page: 2, text: 'Give 30 mL/kg of IV crystalloid within the first 3 hours. Norepinephrine is the first-line vasopressor. Steroids do not improve survival in this group.' }];
+    const rows = (a) => supportAnalysis(a, src).rows;
+    expect(rows('Give 30 mL/kg of IV crystalloid within the first 3 hours [Handbook p. 2]')[0].status).toBe('supported');
+    const wrongNumber = rows('Give 30 mL/kg of IV crystalloid within the first 6 hours [Handbook p. 2]')[0];
+    expect(wrongNumber.status).toBe('partial');
+    expect(wrongNumber.missing).toEqual(['6']);
+    expect(rows('The first-line vasopressor is Vasopressin [Handbook p. 2]')[0].missing).toEqual(['vasopressin']);
+    expect(rows('Steroids improve survival in this group [Handbook p. 2]')[0].conflict).toBe('negation');
+    expect(rows("The lab used Tesla's coil and a Mercedes-Benz car [Handbook p. 2]")[0].missing).toEqual(['tesla', 'mercedes', 'benz']);
+  });
+  it('accepts names and numbers written another way, but not different ones', () => {
+    const src = [{ key: 'b:1', docId: 'b', docName: 'Paper', page: 1, text: 'Carriers of BRCA1 mutations have a higher risk. Dscam acts as a receptor in insects. FGF21 lowers SREBP-2 levels in 12 of 14 mice.' }];
+    const row = (a) => supportAnalysis(a, src).rows[0];
+    expect(row('BRCA 1 mutation carriers have a higher risk [Paper p. 1]').missing).toEqual([]);
+    expect(row('Dscam1 acts as a receptor in insects [Paper p. 1]').missing).toEqual([]);
+    expect(row('FGF21 lowers SREBP2 levels in 12 of 14 mice [Paper p. 1]').missing).toEqual([]);
+    expect(row('FGF21 lowers SREBP2 levels in 12 of 16 mice [Paper p. 1]').missing).toEqual(['16']);
+    expect(row('FGF21 lowers PCSK9 levels in 12 of 14 mice [Paper p. 1]').missing).toEqual(['pcsk9']);
+  });
   it('detects claims that cite the wrong passage', () => {
     const a = supportAnalysis('- Hybrid search merges BM25 and semantic rankings with Reciprocal Rank Fusion [Handbook p. 3]', sources);
     expect(a.rows[0].status).toBe('supported');
@@ -177,12 +197,30 @@ describe('evaluation', () => {
     expect(resolveCitation({ name: 'Guide', page: 6 }, sources)).toMatchObject({ docId: 'g', page: 6, keys: ['g:4'] });
   });
   it('extractive answers are fully supported and highly confident', () => {
-    const q = 'What surgery treats appendicitis?';
+    const q = 'What is the standard treatment for appendicitis?';
     const ans = extractiveAnswer(q, sources.slice(0, 1));
     const h = heuristicEvaluation({ question: q, answer: ans.text, sources });
     expect(h.support.share).toBe(1);
     expect(h.citations.precision).toBe(1);
     expect(confidence({ heuristic: h }).level).toBe('High');
+  });
+  it('extractive answers put the most relevant sentence first, weighting rare words', () => {
+    const src = [
+      { key: 'm:2', docId: 'm', docName: 'Handbook', page: 2, score: 1, text: 'Septic shock is common in the intensive care unit and septic shock needs close monitoring of the patient. Norepinephrine is the first-line vasopressor when hypotension persists after fluids.' },
+    ];
+    const idf = new Map([['septic', 0.4], ['shock', 0.4], ['vasopressor', 3.5], ['firstlin', 2.5], ['first', 1], ['line', 1]]);
+    const a = extractiveAnswer('Which vasopressor is first-line for septic shock?', src, { idf });
+    const bullets = a.text.split('\n').filter((l) => l.startsWith('- '));
+    expect(bullets[0]).toMatch(/Norepinephrine/);
+  });
+  it('extractive answers keep a sentence that continues the chosen one, and never repeat it', () => {
+    const src = [
+      { key: 'h:1', docId: 'h', docName: 'History', page: 1, score: 1, text: 'The Royal Institution of Great Britain was founded in London in the year 1799 by leading scientists. It was established by Henry Cavendish and Joseph Banks to spread scientific knowledge. Its lecture theatre is still in use for public talks today.' },
+    ];
+    const a = extractiveAnswer('Who established the Royal Institution of Great Britain?', src);
+    const bullets = a.text.split('\n').filter((l) => l.startsWith('- '));
+    expect(bullets[0]).toMatch(/founded in London.*It was established by Henry Cavendish/);
+    expect(bullets.filter((b) => /Henry Cavendish/.test(b))).toHaveLength(1);
   });
   it('computes retrieval accuracy (hit, recall, MRR)', () => {
     const ranked = [

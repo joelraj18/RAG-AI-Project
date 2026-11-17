@@ -11,9 +11,17 @@ const dropUnusedOrtWasm = {
   },
 };
 
+// Cross-origin isolation (COOP + COEP) lets onnxruntime-web run the local models on several
+// threads. Every cross-origin request the app makes (model files, jsDelivr, LLM APIs) is a CORS
+// request, which require-corp allows. The deployed site gets the same headers from the Hugging
+// Face Space config (scripts/push_to_hf_space.py) or the service worker (public/coi-sw.js).
+const isolation = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' };
+
 // base './' makes the build work on GitHub Pages (/<repo>/), Hugging Face Spaces and any static host.
 export default defineConfig({
   base: './',
+  server: { headers: isolation },
+  preview: { headers: isolation },
   plugins: [react(), tailwindcss()],
   worker: { format: 'es', plugins: () => [dropUnusedOrtWasm] },
   optimizeDeps: { exclude: ['@huggingface/transformers'] },

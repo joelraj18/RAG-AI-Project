@@ -6,6 +6,7 @@ import { docBytes } from '../lib/kb.js';
 import { fmtBytes, fmtMs, fmtNum } from '../lib/text.js';
 import { STAYS, SENT } from '../components/PrivacyCard.jsx';
 import { dataClass, dataRecipient } from '../lib/providers.js';
+import BenchmarksCard from '../components/BenchmarksCard.jsx';
 
 export default function LearnView() {
   const { activeDocs, settings } = useStore();
@@ -103,6 +104,8 @@ export default function LearnView() {
             ))}
           </div>
         </Card>
+
+        <BenchmarksCard />
 
         <Card>
           <CardHeader icon={ShieldCheck} title="Privacy and data flow" subtitle="What happens to confidential files you upload" />

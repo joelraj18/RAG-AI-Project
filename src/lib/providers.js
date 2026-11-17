@@ -19,7 +19,7 @@ export const PROVIDERS = {
     group: 'free',
     data: 'device',
     tags: ['private'],
-    cost: '0.4 to 1.1 GB download once · slow without WebGPU',
+    cost: '0.5 to 1.7 GB download once, starting when you pick it · slow without WebGPU',
     why: 'Runs on this device. Small models (0.5B to 1.7B) give shorter, simpler answers.',
   },
   hf: {

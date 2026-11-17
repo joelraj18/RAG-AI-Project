@@ -18,6 +18,10 @@ app_file: index.html
 pinned: false
 license: mit
 short_description: Chat with any document - cited, evaluated RAG
+custom_headers:
+  cross-origin-embedder-policy: require-corp
+  cross-origin-opener-policy: same-origin
+  cross-origin-resource-policy: cross-origin
 ---
 
 RAG AI Studio: upload documents (PDF, DOCX, HTML, Markdown, text) and chat with
